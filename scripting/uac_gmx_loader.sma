@@ -1,3 +1,7 @@
+// TODO: Save all data to backup file on API call
+// TODO: Add server command to reload data from API
+// TODO: Load from baclup on load
+
 #include <amxmodx>
 #include <json>
 #include "include/uac.inc"

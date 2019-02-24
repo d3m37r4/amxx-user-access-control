@@ -1,3 +1,7 @@
+// TODO: Add get* natives
+// TODO: Add natives for itterate
+// TODO: Kick player on bad password
+
 #include <amxmodx>
 #include "include/uac.inc"
 
@@ -151,12 +155,6 @@ public plugin_end() {
 	for (new i = 0; i < FWD_LAST; i++) {
 		DestroyForward(Forwards[i]);
 	}
-}
-
-public plugin_natives() {
-	register_native("UAC_Put", "native_put", 0);
-	register_native("UAC_StartLoad", "native_start_load", 0);
-	register_native("UAC_FinishLoad", "native_finish_load", 0);
 }
 
 public CvarChangeAccess(const pcvar, const oldValue[], const newValue[]) {
@@ -331,7 +329,15 @@ getLoadStatusCount(const bool:loaded = true) {
 }
 
 // NATIVES
-public native_start_load(plugin) {
+public plugin_natives() {
+	register_native("UAC_Put", "NativePut", 0);
+	register_native("UAC_StartLoad", "NativeStartLoad", 0);
+	register_native("UAC_FinishLoad", "NativeFinishLoad", 0);
+	register_native("UAC_GetSource", "NativeGetSource", 0);
+	register_native("UAC_GetId", "NativeGetId", 0);
+}
+
+public NativeStartLoad(plugin) {
 	// TODO: Check General Status
 
 	LoadStatusList[LoadStatusNum][LoadSource] = plugin;
@@ -340,7 +346,7 @@ public native_start_load(plugin) {
 	return 1;
 }
 
-public native_finish_load(plugin) {
+public NativeFinishLoad(plugin) {
 	// TODO: Check General Status
 
 	new status = getLoadStatus(plugin);
@@ -355,10 +361,19 @@ public native_finish_load(plugin) {
 	}
 
 	ExecuteForward(Forwards[FWD_Loaded], FReturn, 0);
+
+	if (NeedRecheck) {
+		// TODO: refactor it
+		for (new player = 1; player <= MaxClients; player++) {
+			if (is_user_connected(player)) {
+				makeUserAccess(player, checktUserFlags(player));
+			}
+		}
+	}
 	return 1;
 }
 
-public native_put(plugin, argc) {
+public NativePut(plugin, argc) {
 	enum { arg_id = 1, arg_auth, arg_password, arg_access, arg_flags, arg_nick, arg_expired, arg_options };
 	clear_privilege();
 	new auth[32], key[34];
@@ -382,3 +397,10 @@ public native_put(plugin, argc) {
 	return 1;
 }
 
+public NativeGetSource(plugin, argc) {
+	return Privilege[PrivilegeSource];
+}
+
+public NativeGetId(plugin, argc) {
+	return Privilege[PrivilegeId];
+}

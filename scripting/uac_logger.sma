@@ -11,7 +11,7 @@ public plugin_cfg() {
 	new path[128];
 	get_localinfo("amxx_logs", path, charsmax(path));
 
-	add(path, charsmax(path), "/adminload");
+	add(path, charsmax(path), "/user-access-control");
 	if (!dir_exists(path)) {
 		mkdir(path);
 	}
@@ -33,4 +33,11 @@ public plugin_cfg() {
 
 public plugin_end() {
 	fclose(LogFile);
+}
+
+public UAC_Checked(const id, const bool:found) {
+	if (!found) {
+		return;
+
+	// fprintf(LogFile, "Start of log session (map %s)", map);
 }

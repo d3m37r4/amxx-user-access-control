@@ -21,11 +21,11 @@ forward UAC_Checked(const id, const bool:found);
 native UAC_StartLoad();
 native UAC_FinishLoad();
 
-// native UAC_GetUserSource(const id);
-// native UAC_GetUserId(const id);
-// native UAC_GetUserNick(const id, nick[], length);
-// native UAC_GetuserExpired(const id);
-// native UAC_GetUserOptions(const id);
+native UAC_GetSource();
+native UAC_GetId();
+native UAC_GetNick(nick[], length);
+native UAC_GetExpired();
+native UAC_GetOptions();
 
 // native UAC_ItterReset();
 // native UAC_ItterNext();
