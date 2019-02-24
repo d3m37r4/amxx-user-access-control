@@ -23,7 +23,10 @@ native UAC_FinishLoad();
 
 native UAC_GetSource();
 native UAC_GetId();
-native UAC_GetNick(nick[], length);
+native UAC_GetAccess();
+native UAC_GetFlags();
+native UAC_GetPassword(dest[], length);
+native UAC_GetNick(dest[], length);
 native UAC_GetExpired();
 native UAC_GetOptions();
 

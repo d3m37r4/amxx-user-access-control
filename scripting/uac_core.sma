@@ -5,6 +5,12 @@
 #include <amxmodx>
 #include "include/uac.inc"
 
+#define CHECK_NATIVE_ARGS_NUM(%1,%2) \
+	if (%1 < %2) { \
+		log_error(AMX_ERR_NATIVE, "Invalid num of arguments %d. Expected %d", %1, %2); \
+		return 0; \
+	}
+
 enum {
 	FWD_Loading,
 	FWD_Loaded,
@@ -196,17 +202,21 @@ public client_disconnected(id) {
 }
 
 makeUserAccess(const id, const CheckResult:result) {
+	ExecuteForward(Forwards[FWD_Checking], FReturn, id);
 	switch (result) {
 		case CHECK_DEFAULT: {
 			set_user_flags(id, DefaultAccess[DefaultAccessFlags][DefaultAccessFlags]);
+			ExecuteForward(Forwards[FWD_Checked], FReturn, id, 0);
 		}
 
 		case CHECK_SUCCESS: {
 			set_user_flags(id, Privilege[PrivilegeAccess]);
+			ExecuteForward(Forwards[FWD_Checked], FReturn, id, 1);
 		}
 
 		case CHECK_KICK: {
 			// Kick player
+			ExecuteForward(Forwards[FWD_Checked], FReturn, id, 0);
 		}
 	}
 }
@@ -335,6 +345,12 @@ public plugin_natives() {
 	register_native("UAC_FinishLoad", "NativeFinishLoad", 0);
 	register_native("UAC_GetSource", "NativeGetSource", 0);
 	register_native("UAC_GetId", "NativeGetId", 0);
+	register_native("UAC_GetAccess", "NativeGetAccess", 0);
+	register_native("UAC_GetFlags", "NativeGetFlags", 0);
+	register_native("UAC_GetPassword", "NativeGetPassword", 0);
+	register_native("UAC_GetNick", "NativeGetNick", 0);
+	register_native("UAC_GetExpired", "NativeGetExpired", 0);
+	register_native("UAC_GetOptions", "NativeGetOptions", 0);
 }
 
 public NativeStartLoad(plugin) {
@@ -374,10 +390,12 @@ public NativeFinishLoad(plugin) {
 }
 
 public NativePut(plugin, argc) {
+	CHECK_NATIVE_ARGS_NUM(argc, 8)
 	enum { arg_id = 1, arg_auth, arg_password, arg_access, arg_flags, arg_nick, arg_expired, arg_options };
-	clear_privilege();
-	new auth[32], key[34];
 	
+	clear_privilege();
+
+	new auth[32], key[34];
 	Privilege[PrivilegeSource] = plugin;
 	Privilege[PrivilegeId] = get_param(arg_id);
 	get_string(arg_auth, auth, charsmax(auth));
@@ -403,4 +421,32 @@ public NativeGetSource(plugin, argc) {
 
 public NativeGetId(plugin, argc) {
 	return Privilege[PrivilegeId];
+}
+
+public NativeGetAccess(plugin, argc) {
+	return Privilege[PrivilegeAccess];
+}
+
+public NativeGetFlags(plugin, argc) {
+	return Privilege[PrivilegeFlags];
+}
+
+public NativeGetPassword(plugin, argc) {
+	CHECK_NATIVE_ARGS_NUM(argc, 2)
+	enum { arg_dest = 1, arg_length };
+	return set_string(arg_dest, Privilege[PrivilegePassword], arg_length);
+}
+
+public NativeGetNick(plugin, argc) {
+	CHECK_NATIVE_ARGS_NUM(argc, 2)
+	enum { arg_dest = 1, arg_length };
+	return set_string(arg_dest, Privilege[PrivilegeNick], arg_length);
+}
+
+public NativeGetExpired(plugin, argc) {
+	return Privilege[PrivilegeExpired];
+}
+
+public NativeGetOptions(plugin, argc) {
+	return Privilege[PrivilegeOptions];
 }

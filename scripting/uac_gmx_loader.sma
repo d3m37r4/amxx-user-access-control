@@ -143,7 +143,7 @@ parsePrivileges(const JSON:data) {
 		}
 
 		if (json_object_has_value(tmp, "nick", JSONString)) {
-			json_object_get_string(tmp, "nick", auth, charsmax(auth));
+			json_object_get_string(tmp, "nick", nick, charsmax(nick));
 		}
 
 		parseUserPrivileges(tmp, access, expired);

@@ -4,7 +4,7 @@
 new LogFile;
 
 public plugin_init() {
-	register_plugin("[UAC] AmxBans Loader", "1.0.0", "F@nt0M");
+	register_plugin("[UAC] Logger", "1.0.0", "F@nt0M");
 }
 
 public plugin_cfg() {
@@ -38,6 +38,28 @@ public plugin_end() {
 public UAC_Checked(const id, const bool:found) {
 	if (!found) {
 		return;
+	}
 
-	// fprintf(LogFile, "Start of log session (map %s)", map);
+	new name[MAX_NAME_LENGTH], steamid[MAX_AUTHID_LENGTH], ip[MAX_IP_LENGTH], access[32], nick[MAX_NAME_LENGTH], expired[32];
+	
+	get_user_name(id, name, charsmax(name));
+	get_user_authid(id, steamid, charsmax(steamid));
+	get_user_ip(id, ip, charsmax(ip), 1);
+	get_flags(UAC_GetAccess(), access, charsmax(access));
+	UAC_GetNick(nick, charsmax(nick));
+	if (UAC_GetExpired() > 0) {
+		format_time(expired, charsmax(expired), "%d.%m.%Y - %H:%M:%S", UAC_GetExpired());
+	} else {
+		expired = "never";
+	}
+	fprintf(
+		LogFile, 
+		"Client '%s' (steamid '%s')(ip '%s') became an admin (access ^"%s^") (nick ^"%s^") (id %d) (expired %s)",
+		name, steamid, ip, access, nick,  UAC_GetId(), expired
+	);
+
+	server_print(
+		"Client '%s' (steamid '%s')(ip '%s') became an admin (access ^"%s^") (nick ^"%s^") (id %d) (expired %s)",
+		name, steamid, ip, access, nick,  UAC_GetId(), expired
+	);
 }
