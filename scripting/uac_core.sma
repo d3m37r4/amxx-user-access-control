@@ -86,6 +86,8 @@ enum (<<=1) {
 #define get_user_state(%1,%2) 		(get_user_flags(%1, STATES_SET_ID) & %2)
 #define remove_user_state(%1,%2) 	remove_user_flags(%1, %2, STATES_SET_ID)
 #define clear_user_state(%1) 		remove_user_flags(%1, -1, STATES_SET_ID)
+#define clear_privilege() arrayset(Privilege, 0 , sizeof Privilege)
+#define clear_user_privilege(%1) arrayset(UsersPrivilege[%1], 0 , sizeof Privilege[])
 
 enum CheckResult {
 	CHECK_IGNORE,
@@ -106,8 +108,7 @@ enum _:PrivilegeStruct {
 };
 
 new Trie:Privileges, Privilege[PrivilegeStruct];
-
-#define clear_privilege() arrayset(Privilege, 0 , sizeof Privilege)
+new UsersPrivilege[MAX_PLAYERS + 1][PrivilegeStruct];
 
 public plugin_precache() {
 	Privileges = TrieCreate();
@@ -118,15 +119,13 @@ public plugin_precache() {
 	Forwards[FWD_Checked] = CreateMultiForward("UAC_Checked", ET_IGNORE, FP_CELL, FP_CELL);
 	Forwards[FWD_Added] = CreateMultiForward("UAC_Added", ET_IGNORE);
 
-	// TODO: Move to reload configs
-	for (new i = 0; i < sizeof LoadStatusList; i++) {
-		arrayset(LoadStatusList[i], 0, sizeof LoadStatusList[]);
-	}
 	ExecuteForward(Forwards[FWD_Loading], FReturn, 0);
 }
 
 public plugin_init() {
 	register_plugin("[UAC] Core", "1.0.0", "F@nt0M");
+
+	register_concmd("amx_reloadadmins", "CmdReload");
 	
 	new pcvar;
 	pcvar = create_cvar("amx_mode", "1", .has_min=true, .min_val=0.0, .has_max=true, .max_val=2.0);
@@ -172,11 +171,20 @@ public CvarChangeAccess(const pcvar, const oldValue[], const newValue[]) {
 	}
 }
 
+public CmdReload() {
+	TrieClear(Privileges);
+	for (new i = 0; i < sizeof LoadStatusList; i++) {
+		arrayset(LoadStatusList[i], 0, sizeof LoadStatusList[]);
+	}
+	ExecuteForward(Forwards[FWD_Loading], FReturn, 0);
+}
+
 public client_connect(id) {
 	if (Status == STATUS_LOADING) {
 		NeedRecheck = true;
 	}
 	clear_user_state(id);
+	clear_user_privilege(id);
 	remove_user_flags(id, -1);
 }
 
@@ -211,6 +219,7 @@ makeUserAccess(const id, const CheckResult:result) {
 
 		case CHECK_SUCCESS: {
 			set_user_flags(id, Privilege[PrivilegeAccess]);
+			UsersPrivilege[id] = Privilege;
 			ExecuteForward(Forwards[FWD_Checked], FReturn, id, 1);
 		}
 

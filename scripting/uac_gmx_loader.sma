@@ -32,7 +32,7 @@ public UAC_Loading() {
 
 public OnResponse(const status, JSON:data, const userid) {
 	if (status != GMX_REQ_STATUS_OK) {
-		server_print("Error load player #%d", userid);
+		server_print("Error load admins");
 		UAC_FinishLoad();
 		return;
 	}
