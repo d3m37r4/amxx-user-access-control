@@ -10,13 +10,20 @@ enum (<<=1) {
 	UAC_OPTIONS_RESERVED_NICK,
 }
 
+enum UAC_CheckResult {
+	UAC_CHECK_IGNORE,
+	UAC_CHECK_DEFAULT,
+	UAC_CHECK_SUCCESS,
+	UAC_CHECK_KICK,
+};
+
 native UAC_Put(const id, const authid[], const password[], const access, const flags, const nick[], const expired, const otpions);
 
 
 forward UAC_Loading(const reload);
 forward UAC_Loaded(const reload);
 forward UAC_Checking(const id);
-forward UAC_Checked(const id, const bool:found);
+forward UAC_Checked(const id, const UAC_CheckResult:result);
 
 native UAC_StartLoad();
 native UAC_FinishLoad();

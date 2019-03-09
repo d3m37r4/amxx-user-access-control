@@ -224,22 +224,20 @@ makeUserAccess(const id, const CheckResult:result) {
 	switch (result) {
 		case CHECK_DEFAULT: {
 			set_user_flags(id, DefaultAccess[DefaultAccessFlags][DefaultAccessFlags]);
-			ExecuteForward(Forwards[FWD_Checked], FReturn, id, 0);
 			printConsole(id, "* Privileges set");
 		}
 
 		case CHECK_SUCCESS: {
 			set_user_flags(id, Privilege[PrivilegeAccess]);
 			UsersPrivilege[id] = Privilege;
-			ExecuteForward(Forwards[FWD_Checked], FReturn, id, 1);
 			printConsole(id, "* Privileges set");
 		}
 
 		case CHECK_KICK: {
 			server_cmd("kick #%d ^"%s^"", get_user_userid(id), KickReason);
-			ExecuteForward(Forwards[FWD_Checked], FReturn, id, 0);
 		}
 	}
+	ExecuteForward(Forwards[FWD_Checked], FReturn, id, result);
 }
 
 CheckResult:checktUserFlags(const id, const name[] = "") {
@@ -325,9 +323,6 @@ CheckResult:setUserAccess(const id) {
 		} else {
 			get_user_info(id, PasswordField, password, charsmax(password));
 		}
-
-		server_print("^t PASSWORD '%s'", password);
-		server_print("^t HASH '%s'", Privilege[PrivilegePassword]);
 
 		if (strcmp(password, Privilege[PrivilegePassword]) == 0) {
 			return CHECK_SUCCESS;
@@ -447,7 +442,6 @@ public NativePut(plugin, argc) {
 	Privilege[PrivilegeId] = get_param(arg_id);
 	get_string(arg_auth, auth, charsmax(auth));
 	get_string(arg_password, Privilege[PrivilegePassword], 33);
-	server_print("^t Privilege[PrivilegePassword] '%s'", Privilege[PrivilegePassword])
 	Privilege[PrivilegeAccess] = get_param(arg_access);
 	Privilege[PrivilegeFlags] = get_param(arg_flags);
 	get_string(arg_nick, Privilege[PrivilegeNick], 31);
@@ -456,10 +450,6 @@ public NativePut(plugin, argc) {
 
 	makeKey(auth, Privilege[PrivilegeFlags], key, charsmax(key));
 	TrieSetArray(Privileges, key, Privilege, sizeof Privilege);
-
-	new tmp[32];
-	get_flags(Privilege[PrivilegeAccess], tmp, 31);
-	server_print("^t PUSH NEW ADMIN %d (%d) (auth %s) (access %s)", Privilege[PrivilegeId], plugin, auth, tmp);
 	return 1;
 }
 

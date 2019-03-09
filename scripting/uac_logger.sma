@@ -35,8 +35,8 @@ public plugin_end() {
 	fclose(LogFile);
 }
 
-public UAC_Checked(const id, const bool:found) {
-	if (!found) {
+public UAC_Checked(const id, const UAC_CheckResult:found) {
+	if (found != UAC_CHECK_SUCCESS) {
 		return;
 	}
 

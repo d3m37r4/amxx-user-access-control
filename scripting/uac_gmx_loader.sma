@@ -177,7 +177,6 @@ parsePrivileges(const JSON:data) {
 		parseUserPrivileges(tmp, access, expired);
 
 		if (expired == 0 || expired < now) {
-			server_print("^t password '%s'", password)
 			UAC_Put(id, auth, password, access, flags, nick, expired, options);
 		}
 		json_free(tmp);
