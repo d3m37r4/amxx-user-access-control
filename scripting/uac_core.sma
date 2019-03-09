@@ -59,6 +59,7 @@ new Mode;
 */
 new SearchPriority[32];
 
+new KickReason[64];
 new PasswordField[10];
 
 enum {
@@ -119,13 +120,14 @@ public plugin_precache() {
 	Forwards[FWD_Checked] = CreateMultiForward("UAC_Checked", ET_IGNORE, FP_CELL, FP_CELL);
 	Forwards[FWD_Added] = CreateMultiForward("UAC_Added", ET_IGNORE);
 
+	Status = STATUS_LOADING;
 	ExecuteForward(Forwards[FWD_Loading], FReturn, 0);
 }
 
 public plugin_init() {
 	register_plugin("[UAC] Core", "1.0.0", "F@nt0M");
 
-	register_concmd("amx_reloadadmins", "CmdReload");
+	register_concmd("amx_reloadadmins", "CmdReload", ADMIN_CFG);
 	
 	new pcvar;
 	pcvar = create_cvar("amx_mode", "1", .has_min=true, .min_val=0.0, .has_max=true, .max_val=2.0);
@@ -171,12 +173,20 @@ public CvarChangeAccess(const pcvar, const oldValue[], const newValue[]) {
 	}
 }
 
-public CmdReload() {
+public CmdReload(id, level) {
+	if (~get_user_flags(id) & level) {
+		console_print(id, "You have no access to that command");
+		return PLUGIN_HANDLED;
+	}
+
 	TrieClear(Privileges);
 	for (new i = 0; i < sizeof LoadStatusList; i++) {
 		arrayset(LoadStatusList[i], 0, sizeof LoadStatusList[]);
 	}
+	NeedRecheck = true;
+	Status = STATUS_LOADING;
 	ExecuteForward(Forwards[FWD_Loading], FReturn, 0);
+	return PLUGIN_HANDLED;
 }
 
 public client_connect(id) {
@@ -215,16 +225,18 @@ makeUserAccess(const id, const CheckResult:result) {
 		case CHECK_DEFAULT: {
 			set_user_flags(id, DefaultAccess[DefaultAccessFlags][DefaultAccessFlags]);
 			ExecuteForward(Forwards[FWD_Checked], FReturn, id, 0);
+			printConsole(id, "* Privileges set");
 		}
 
 		case CHECK_SUCCESS: {
 			set_user_flags(id, Privilege[PrivilegeAccess]);
 			UsersPrivilege[id] = Privilege;
 			ExecuteForward(Forwards[FWD_Checked], FReturn, id, 1);
+			printConsole(id, "* Privileges set");
 		}
 
 		case CHECK_KICK: {
-			// Kick player
+			server_cmd("kick #%d ^"%s^"", get_user_userid(id), KickReason);
 			ExecuteForward(Forwards[FWD_Checked], FReturn, id, 0);
 		}
 	}
@@ -294,6 +306,10 @@ CheckResult:checktUserFlags(const id, const name[] = "") {
 		}
 	} while (SearchPriority[++i] != EOS);
 	
+	if (Mode == MODE_KICK && result == CHECK_DEFAULT) {
+		KickReason = "You have no entry to the server...";
+		return CHECK_KICK;
+	}
 	return result;
 }
 
@@ -301,14 +317,25 @@ CheckResult:setUserAccess(const id) {
 	if (Privilege[PrivilegeFlags] & FLAG_NOPASS) {
 		return CHECK_SUCCESS;
 	} else {
-		new infoPass[40], password[34];
-		get_user_info(id, PasswordField, infoPass, charsmax(infoPass));
-		hash_string(infoPass, Hash_Md5, password, charsmax(password));
+		new password[34];
+		if (Privilege[PrivilegeOptions] & UAC_OPTIONS_MD5) {
+			new infoPass[40];
+			get_user_info(id, PasswordField, infoPass, charsmax(infoPass));
+			hash_string(infoPass, Hash_Md5, password, charsmax(password));
+		} else {
+			get_user_info(id, PasswordField, password, charsmax(password));
+		}
+
+		server_print("^t PASSWORD '%s'", password);
+		server_print("^t HASH '%s'", Privilege[PrivilegePassword]);
 
 		if (strcmp(password, Privilege[PrivilegePassword]) == 0) {
 			return CHECK_SUCCESS;
+		} else if (Privilege[PrivilegeFlags] & FLAG_KICK) {
+			KickReason = "Invalid Password!";
+			return CHECK_KICK;
 		} else {
-			return Privilege[PrivilegeFlags] & FLAG_KICK ? CHECK_KICK : CHECK_DEFAULT;
+			return CHECK_DEFAULT;
 		}
 	}
 }
@@ -347,6 +374,12 @@ getLoadStatusCount(const bool:loaded = true) {
 	return result;
 }
 
+printConsole(id, const msg[]) {
+	message_begin(MSG_ONE, SVC_PRINT, .player = id);
+	write_string(msg);
+	message_end();
+}
+
 // NATIVES
 public plugin_natives() {
 	register_native("UAC_Put", "NativePut", 0);
@@ -363,7 +396,9 @@ public plugin_natives() {
 }
 
 public NativeStartLoad(plugin) {
-	// TODO: Check General Status
+	if (Status == STATUS_LOADED) {
+		return 0;
+	}
 
 	LoadStatusList[LoadStatusNum][LoadSource] = plugin;
 	LoadStatusList[LoadStatusNum][LoadLoaded] = false;
@@ -372,7 +407,9 @@ public NativeStartLoad(plugin) {
 }
 
 public NativeFinishLoad(plugin) {
-	// TODO: Check General Status
+	if (Status == STATUS_LOADED) {
+		return 0;
+	}
 
 	new status = getLoadStatus(plugin);
 	if (status == -1) {
@@ -385,6 +422,7 @@ public NativeFinishLoad(plugin) {
 		return 1;
 	}
 
+	Status = STATUS_LOADED;
 	ExecuteForward(Forwards[FWD_Loaded], FReturn, 0);
 
 	if (NeedRecheck) {
@@ -409,6 +447,7 @@ public NativePut(plugin, argc) {
 	Privilege[PrivilegeId] = get_param(arg_id);
 	get_string(arg_auth, auth, charsmax(auth));
 	get_string(arg_password, Privilege[PrivilegePassword], 33);
+	server_print("^t Privilege[PrivilegePassword] '%s'", Privilege[PrivilegePassword])
 	Privilege[PrivilegeAccess] = get_param(arg_access);
 	Privilege[PrivilegeFlags] = get_param(arg_flags);
 	get_string(arg_nick, Privilege[PrivilegeNick], 31);

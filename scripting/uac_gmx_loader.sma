@@ -1,10 +1,9 @@
-// TODO: Save all data to backup file on API call
-// TODO: Add server command to reload data from API
-// TODO: Load from baclup on load
-
 #include <amxmodx>
 #include <json>
 #include "include/uac.inc"
+
+new FilePath[64];
+new bool:Loaded = false;
 
 enum {
 	GMX_REQ_STATUS_ERROR = 0,
@@ -19,6 +18,17 @@ enum AUTH_TYPE {
 	AUTH_TYPE_NICK_AND_HASH
 };
 
+#define MAX_GROUP_TITLE_LENGTH 32
+
+enum _:GroupInfo {
+	GroupId,
+	GroupTitle[MAX_GROUP_TITLE_LENGTH],
+	GroupFlags,
+	GroupPriority
+}
+
+new Array:Groups = Invalid_Array, GroupsNum, Group[GroupInfo];
+
 native GamexMakeRequest(const endpoint[], JSON:data, const callback[], const param = 0);
 
 public plugin_init() {
@@ -27,20 +37,44 @@ public plugin_init() {
 
 public UAC_Loading() {
 	UAC_StartLoad();
-	GamexMakeRequest("server/privileges", Invalid_JSON, "OnResponse");
+
+	new bool:needRequest = true;
+	if (!Loaded) {
+		get_localinfo("amxx_datadir", FilePath, charsmax(FilePath));
+		add(FilePath, charsmax(FilePath), "/gmx/privileges.json");
+		if (file_exists(FilePath)) {
+			new JSON:data = json_parse(FilePath, true);
+			if (data != Invalid_JSON && parseData(data)) {
+				needRequest = false;
+			}
+		}
+	}
+
+	if (needRequest) {
+		GamexMakeRequest("server/privileges", Invalid_JSON, "OnResponse");
+	} else {
+		UAC_FinishLoad();
+	}
+	Loaded = true;
 }
 
-public OnResponse(const status, JSON:data, const userid) {
+public OnResponse(const status, const JSON:data, const userid) {
 	if (status != GMX_REQ_STATUS_OK) {
-		server_print("Error load admins");
 		UAC_FinishLoad();
 		return;
 	}
 
+	parseData(data);
+	UAC_FinishLoad();
+	
+	json_serial_to_file(data, FilePath, false);
+	UAC_FinishLoad();
+}
+
+bool:parseData(const JSON:data) {
 	if (!json_is_object(data)) {
-		server_print("Bad response");
-		UAC_FinishLoad();
-		return;
+		server_print("^t IS NOT OBJECT")
+		return false;
 	}
 
 	new JSON:tmp;
@@ -54,19 +88,9 @@ public OnResponse(const status, JSON:data, const userid) {
 		parsePrivileges(tmp);
 		json_free(tmp);
 	}
-	UAC_FinishLoad();
+
+	return true;
 }
-
-#define MAX_GROUP_TITLE_LENGTH 32
-
-enum _:GroupInfo {
-	GroupId,
-	GroupTitle[MAX_GROUP_TITLE_LENGTH],
-	GroupFlags,
-	GroupPriority
-}
-
-new Array:Groups = Invalid_Array, GroupsNum, Group[GroupInfo];
 
 parseGroups(const JSON:data) {
 	if (Groups == Invalid_Array) {
@@ -92,6 +116,7 @@ parseGroups(const JSON:data) {
 }
 
 parsePrivileges(const JSON:data) {
+	new now = get_systime(0);
 	new id, auth[44], password[34], access, flags, nick[32], expired, options, authTypeStr[32], AUTH_TYPE:authType;
 	for (new i = 0, n = json_array_get_count(data), JSON:tmp; i < n; i++) {
 		tmp = json_array_get_value(data, i);
@@ -109,6 +134,9 @@ parsePrivileges(const JSON:data) {
 		options = 0;
 
 		id = json_object_has_value(tmp, "id", JSONNumber) ? json_object_get_number(tmp, "id") : 0;
+		if (json_object_has_value(tmp, "password", JSONString)) {
+			json_object_get_string(tmp, "password", password, charsmax(password));
+		}
 
 		if (json_object_has_value(tmp, "auth_type", JSONString)) {
 			json_object_get_string(tmp, "auth_type", authTypeStr, charsmax(authTypeStr));
@@ -147,7 +175,11 @@ parsePrivileges(const JSON:data) {
 		}
 
 		parseUserPrivileges(tmp, access, expired);
-		UAC_Put(id, auth, password, access, flags, nick, expired, options);
+
+		if (expired == 0 || expired < now) {
+			server_print("^t password '%s'", password)
+			UAC_Put(id, auth, password, access, flags, nick, expired, options);
+		}
 		json_free(tmp);
 	}
 }
