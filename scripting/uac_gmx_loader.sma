@@ -1,6 +1,7 @@
 #include <amxmodx>
 #include <json>
-#include "include/uac.inc"
+#include <uac>
+#include <gmx>
 
 new FilePath[64];
 new bool:Loaded = false;
@@ -28,8 +29,6 @@ enum _:GroupInfo {
 }
 
 new Array:Groups = Invalid_Array, GroupsNum, Group[GroupInfo];
-
-native GamexMakeRequest(const endpoint[], JSON:data, const callback[], const param = 0);
 
 public plugin_init() {
 	register_plugin("[UAC] GM-X Loader", "1.0.0", "F@nt0M");

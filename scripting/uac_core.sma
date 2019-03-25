@@ -3,7 +3,7 @@
 // TODO: Kick player on bad password
 
 #include <amxmodx>
-#include "include/uac.inc"
+#include <uac>
 
 #define CHECK_NATIVE_ARGS_NUM(%1,%2) \
 	if (%1 < %2) { \
