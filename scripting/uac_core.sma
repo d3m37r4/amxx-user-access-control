@@ -250,14 +250,15 @@ loadFinish(const bool:timeout) {
 }
 
 makeUserAccess(const id, const CheckResult:result) {
-	ExecuteForward(Forwards[FWD_Checking], FReturn, id);
 	switch (result) {
 		case CHECK_DEFAULT: {
+			remove_user_flags(id);
 			set_user_flags(id, DefaultAccess[DefaultAccessFlags][DefaultAccessFlags]);
 			printConsole(id, "* Privileges set");
 		}
 
 		case CHECK_SUCCESS: {
+			remove_user_flags(id);
 			set_user_flags(id, Privilege[PrivilegeAccess]);
 			UsersPrivilege[id] = Privilege;
 			printConsole(id, "* Privileges set");
@@ -284,6 +285,8 @@ CheckResult:checktUserFlags(const id, const name[] = "") {
 		set_user_flags(id, DefaultAccess[DefaultAccessBOT][DefaultAccessFlags]);
 		return CHECK_IGNORE;
 	}
+
+	ExecuteForward(Forwards[FWD_Checking], FReturn, id);
 	
 	#define MAX_AUTH_LENGTH 32
 	#define MAX_KEY_LENGTH 32
