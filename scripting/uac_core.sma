@@ -11,6 +11,8 @@
 		return 0; \
 	}
 
+#define TIMEOUT_TASK_ID 1
+
 enum {
 	FWD_Loading,
 	FWD_Loaded,
@@ -120,8 +122,7 @@ public plugin_precache() {
 	Forwards[FWD_Checked] = CreateMultiForward("UAC_Checked", ET_IGNORE, FP_CELL, FP_CELL);
 	Forwards[FWD_Added] = CreateMultiForward("UAC_Added", ET_IGNORE);
 
-	Status = STATUS_LOADING;
-	ExecuteForward(Forwards[FWD_Loading], FReturn, 0);
+	loadStart(false);
 }
 
 public plugin_init() {
@@ -179,13 +180,7 @@ public CmdReload(id, level) {
 		return PLUGIN_HANDLED;
 	}
 
-	TrieClear(Privileges);
-	for (new i = 0; i < sizeof LoadStatusList; i++) {
-		arrayset(LoadStatusList[i], 0, sizeof LoadStatusList[]);
-	}
-	NeedRecheck = true;
-	Status = STATUS_LOADING;
-	ExecuteForward(Forwards[FWD_Loading], FReturn, 0);
+	loadStart(true);
 	return PLUGIN_HANDLED;
 }
 
@@ -217,6 +212,41 @@ public client_disconnected(id) {
 	add_user_state(id, STATE_DISCONNECTED);
 	remove_user_flags(id, -1);
 	set_user_flags(id, DefaultAccess[DefaultAccessFlags][DefaultAccessFlags]);
+}
+
+public TaskLoadTimeout() {
+	loadFinish(true);
+}
+
+loadStart(const bool:reload) {
+	if (reload) {
+		TrieClear(Privileges);
+		for (new i = 0; i < sizeof LoadStatusList; i++) {
+			arrayset(LoadStatusList[i], 0, sizeof LoadStatusList[]);
+		}
+		NeedRecheck = true;
+	}
+	Status = STATUS_LOADING;
+	ExecuteForward(Forwards[FWD_Loading], FReturn, reload ? 1 : 0);
+	set_task(5.0, "TaskLoadTimeout", TIMEOUT_TASK_ID);
+}
+
+loadFinish(const bool:timeout) {
+	Status = STATUS_LOADED;
+	ExecuteForward(Forwards[FWD_Loaded], FReturn, 0);
+
+	if (NeedRecheck) {
+		// TODO: refactor it
+		for (new player = 1; player <= MaxClients; player++) {
+			if (is_user_connected(player)) {
+				makeUserAccess(player, checktUserFlags(player));
+			}
+		}
+	}
+
+	if (!timeout) {
+		remove_task(TIMEOUT_TASK_ID);
+	}
 }
 
 makeUserAccess(const id, const CheckResult:result) {
@@ -417,17 +447,7 @@ public NativeFinishLoad(plugin) {
 		return 1;
 	}
 
-	Status = STATUS_LOADED;
-	ExecuteForward(Forwards[FWD_Loaded], FReturn, 0);
-
-	if (NeedRecheck) {
-		// TODO: refactor it
-		for (new player = 1; player <= MaxClients; player++) {
-			if (is_user_connected(player)) {
-				makeUserAccess(player, checktUserFlags(player));
-			}
-		}
-	}
+	loadFinish(false);
 	return 1;
 }
 
