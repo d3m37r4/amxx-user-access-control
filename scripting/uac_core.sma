@@ -113,18 +113,6 @@ enum _:PrivilegeStruct {
 new Trie:Privileges, Privilege[PrivilegeStruct];
 new UsersPrivilege[MAX_PLAYERS + 1][PrivilegeStruct];
 
-public plugin_precache() {
-	Privileges = TrieCreate();
-
-	Forwards[FWD_Loading] = CreateMultiForward("UAC_Loading", ET_IGNORE, FP_CELL);
-	Forwards[FWD_Loaded] = CreateMultiForward("UAC_Loaded", ET_IGNORE, FP_CELL);
-	Forwards[FWD_Checking] = CreateMultiForward("UAC_Checking", ET_IGNORE, FP_CELL);
-	Forwards[FWD_Checked] = CreateMultiForward("UAC_Checked", ET_IGNORE, FP_CELL, FP_CELL);
-	Forwards[FWD_Added] = CreateMultiForward("UAC_Added", ET_IGNORE);
-
-	loadStart(false);
-}
-
 public plugin_init() {
 	register_plugin("[UAC] Core", "1.0.0", "F@nt0M");
 
@@ -147,6 +135,16 @@ public plugin_init() {
 	hook_cvar_change(DefaultAccess[DefaultAccessPlayer][DefaultAccessCvar], "CvarChangeAccess");
 	hook_cvar_change(DefaultAccess[DefaultAccessHLTV][DefaultAccessCvar], "CvarChangeAccess");
 	hook_cvar_change(DefaultAccess[DefaultAccessBOT][DefaultAccessCvar], "CvarChangeAccess");
+
+	Privileges = TrieCreate();
+
+	Forwards[FWD_Loading] = CreateMultiForward("UAC_Loading", ET_IGNORE, FP_CELL);
+	Forwards[FWD_Loaded] = CreateMultiForward("UAC_Loaded", ET_IGNORE, FP_CELL);
+	Forwards[FWD_Checking] = CreateMultiForward("UAC_Checking", ET_IGNORE, FP_CELL);
+	Forwards[FWD_Checked] = CreateMultiForward("UAC_Checked", ET_IGNORE, FP_CELL, FP_CELL);
+	Forwards[FWD_Added] = CreateMultiForward("UAC_Added", ET_IGNORE);
+
+	loadStart(false);
 }
 
 public plugin_cfg() {
