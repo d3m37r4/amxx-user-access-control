@@ -1,5 +1,4 @@
 #include <amxmodx>
-#include <json>
 #include <grip>
 #include <uac>
 #include <gmx>
@@ -38,7 +37,7 @@ public plugin_init() {
 public GamexCfgLoaded() {
 	GMXLoaded = true;
 	if (UACLoading) {
-		GamexMakeRequest("server/privileges", Invalid_JSON, "OnResponse");
+		GamexMakeRequest("server/privileges", Invalid_GripJSONValue, "OnResponse");
 		UACLoading = false;
 	}
 }
@@ -64,7 +63,7 @@ public UAC_Loading() {
 	// 	UAC_FinishLoad();
 	// } else if (GMXLoaded) {
 	if (GMXLoaded) {
-		GamexMakeRequest("server/privileges", Invalid_JSON, "OnResponse");
+		GamexMakeRequest("server/privileges", Invalid_GripJSONValue, "OnResponse");
 	} else {
 		UACLoading = true;
 	}
