@@ -3,8 +3,8 @@
 #include <uac>
 #include <gmx>
 
-// new FilePath[64];
-new bool:GMXLoaded = false, bool:UACLoading = false; // bool:Loaded = false;
+new FilePath[64];
+new bool:GMXLoaded = false, bool:UACLoading = false, bool:Loaded = false;
 
 enum {
 	GMX_REQ_STATUS_ERROR = 0,
@@ -46,23 +46,24 @@ public UAC_Loading() {
 	UAC_StartLoad();
 	UACLoading = true;
 
-	// new bool:needRequest = true;
-	// if (!Loaded) {
-	// 	get_localinfo("amxx_datadir", FilePath, charsmax(FilePath));
-	// 	add(FilePath, charsmax(FilePath), "/gmx/privileges.json");
-	// 	if (file_exists(FilePath)) {
-	// 		new JSON:data = json_parse(FilePath, true);
-	// 		if (data != Invalid_JSON && parseData(data)) {
-	// 			needRequest = false;
-	// 		}
-	// 	}
-	// 	Loaded = true;
-	// }
+	new bool:needRequest = true;
+	if (!Loaded) {
+		get_localinfo("amxx_datadir", FilePath, charsmax(FilePath));
+		add(FilePath, charsmax(FilePath), "/gmx/privileges.json");
+		if (file_exists(FilePath)) {
+			new error[128];
+			new GripJSONValue:data = grip_json_parse_file(FilePath, error, charsmax(error));
+			if (data != Invalid_GripJSONValue) {
+				needRequest = parseData(data);
+				grip_destroy_json_value(data);
+			}
+		}
+		Loaded = true;
+	}
 
-	// if (!needRequest) {
-	// 	UAC_FinishLoad();
-	// } else if (GMXLoaded) {
-	if (GMXLoaded) {
+	if (!needRequest) {
+		UAC_FinishLoad();
+	} else if (GMXLoaded) {
 		GamexMakeRequest("server/privileges", Invalid_GripJSONValue, "OnResponse");
 	} else {
 		UACLoading = true;
@@ -76,7 +77,8 @@ public OnResponse(const status, const GripJSONValue:data, const userid) {
 	}
 
 	parseData(data);
-	// json_serial_to_file(data, FilePath, false);
+	grip_json_serial_to_file(data, FilePath, false);
+	grip_destroy_json_value(data);
 	UAC_FinishLoad();
 }
 
