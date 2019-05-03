@@ -30,7 +30,7 @@ enum _:LoadStatus {
 	bool:LoadLoaded
 };
 
-new LoadStatusList[5][LoadStatus], LoadStatusNum;
+new LoadStatusList[5][LoadStatus], LoadStatusNum, PluginLoadedNum;
 
 enum {
 	STATUS_LOADING,
@@ -219,12 +219,15 @@ public TaskLoadTimeout() {
 loadStart(const bool:reload) {
 	if (reload) {
 		TrieClear(Privileges);
-		for (new i = 0; i < sizeof LoadStatusList; i++) {
-			arrayset(LoadStatusList[i], 0, sizeof LoadStatusList[]);
-		}
 		NeedRecheck = true;
 	}
 	Status = STATUS_LOADING;
+	PluginLoadedNum = 0;
+
+	for (new i = 0; i < sizeof LoadStatusList; i++) {
+		arrayset(LoadStatusList[i], 0, sizeof LoadStatusList[]);
+	}
+	LoadStatusNum = 0;
 	ExecuteForward(Forwards[FWD_Loading], FReturn, reload ? 1 : 0);
 	set_task(5.0, "TaskLoadTimeout", TIMEOUT_TASK_ID);
 }
@@ -381,7 +384,7 @@ makeKey(const auth[], const flags, key[], len) {
 
 getLoadStatus(const source) {
 	for (new i = 0; i < LoadStatusNum; i++) {
-		if (LoadStatusList[LoadStatusNum][LoadSource] == source) {
+		if (LoadStatusList[i][LoadSource] == source) {
 			return i;
 		}
 	}
@@ -429,6 +432,10 @@ public NativeStartLoad(plugin) {
 	LoadStatusList[LoadStatusNum][LoadSource] = plugin;
 	LoadStatusList[LoadStatusNum][LoadLoaded] = false;
 	LoadStatusNum++;
+
+	new pluginName[64];
+	get_plugin(plugin, .filename = pluginName, .len1 = charsmax(pluginName));
+	log_amx("Module %s start loading privileges", pluginName);
 	return 1;
 }
 
@@ -443,6 +450,10 @@ public NativeFinishLoad(plugin) {
 	}
 
 	LoadStatusList[status][LoadLoaded] = true;
+	new pluginName[64];
+	get_plugin(plugin, .filename = pluginName, .len1 = charsmax(pluginName));
+	log_amx("Module %s finish loading privileges. Loaded %d privileges", pluginName, PluginLoadedNum);
+	PluginLoadedNum = 0;
 
 	if (getLoadStatusCount(true) != LoadStatusNum) {
 		return 1;
@@ -471,6 +482,7 @@ public NativePut(plugin, argc) {
 
 	makeKey(auth, Privilege[PrivilegeFlags], key, charsmax(key));
 	TrieSetArray(Privileges, key, Privilege, sizeof Privilege);
+	PluginLoadedNum++;
 	return 1;
 }
 

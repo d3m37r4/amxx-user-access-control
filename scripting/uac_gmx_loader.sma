@@ -111,7 +111,7 @@ parseGroups(const GripJSONValue:data) {
 	}
 	for (new i = 0, n = grip_json_array_get_count(data), GripJSONValue:tmp; i < n; i++) {
 		tmp = grip_json_array_get_value(data, i);
-		if (grip_json_get_type(data) == GripJSONObject) {
+		if (grip_json_get_type(tmp) == GripJSONObject) {
 			arrayset(Group, 0, sizeof Group);
 			Group[GroupId] = grip_json_object_get_number(tmp, "id");
 			grip_json_object_get_string(tmp, "title", Group[GroupTitle], charsmax(Group[GroupTitle]));
@@ -126,10 +126,10 @@ parseGroups(const GripJSONValue:data) {
 
 parsePrivileges(const GripJSONValue:data) {
 	new now = get_systime(0);
-	new id, auth[44], password[34], access, flags, nick[32], expired, options, authTypeStr[32], AUTH_TYPE:authType;
-	for (new i = 0, n = grip_json_array_get_count(data), GripJSONValue:tmp; i < n; i++) {
+	new id, auth[44], password[34], access, flags, nick[32], expired, options, authTypeStr[32];
+	for (new i = 0, n = grip_json_array_get_count(data), GripJSONValue:tmp, GripJSONValue:passwordValue; i < n; i++) {
 		tmp = grip_json_array_get_value(data, i);
-		if (grip_json_get_type(data) != GripJSONObject) {
+		if (grip_json_get_type(tmp) != GripJSONObject) {
 			grip_destroy_json_value(tmp);
 			continue;
 		}
@@ -143,11 +143,14 @@ parsePrivileges(const GripJSONValue:data) {
 		options = 0;
 
 		id = grip_json_object_get_number(tmp, "id");
-		grip_json_object_get_string(tmp, "password", password, charsmax(password));
+
+		passwordValue = grip_json_object_get_value(tmp, "password");
+		if (grip_json_get_type(passwordValue) != GripJSONNull) {
+			grip_json_get_string(passwordValue, password, charsmax(password));
+		}		
+
 		grip_json_object_get_string(tmp, "auth_type", authTypeStr, charsmax(authTypeStr));
-		authType = getAuthType(authTypeStr);
-		
-		switch (authType) {
+		switch (getAuthType(authTypeStr)) {
 			case AUTH_TYPE_STEAM: {
 				flags |= FLAG_AUTHID | FLAG_NOPASS;
 				grip_json_object_get_string(tmp, "steamid", auth, charsmax(auth));
