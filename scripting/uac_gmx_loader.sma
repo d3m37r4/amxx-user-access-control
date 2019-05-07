@@ -172,7 +172,7 @@ parsePrivileges(const GripJSONValue:data) {
 		grip_json_object_get_string(tmp, "nick", nick, charsmax(nick));
 		parseUserPrivileges(tmp, access, expired);
 
-		if (expired == 0 || expired < now) {
+		if (expired == 0 || expired >= now) {
 			UAC_Put(id, auth, password, access, flags, nick, expired, options);
 		}
 		grip_destroy_json_value(tmp);
