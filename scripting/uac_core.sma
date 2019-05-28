@@ -114,7 +114,7 @@ new Trie:Privileges, Privilege[PrivilegeStruct];
 new UsersPrivilege[MAX_PLAYERS + 1][PrivilegeStruct];
 
 public plugin_init() {
-	register_plugin("[UAC] Core", "1.0.0", "F@nt0M");
+	register_plugin("[UAC] Core", "1.0.0", "GM-X Team");
 
 	register_concmd("amx_reloadadmins", "CmdReload", ADMIN_CFG);
 	
