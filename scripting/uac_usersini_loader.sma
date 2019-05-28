@@ -2,7 +2,7 @@
 #include "include/uac.inc"
 
 public plugin_init() {
-	register_plugin("[UAC] Users INI Loader", "1.0.0", "F@nt0M");
+	register_plugin("[UAC] Users INI Loader", "1.0.0", "GM-X Team");
 }
 
 public UAC_Loading() {

@@ -1,10 +1,10 @@
 #include <amxmodx>
-#include <json>
+#include <grip>
 #include <uac>
 #include <gmx>
 
-new FilePath[64];
-new bool:Loaded = false;
+new BackupPath[128], bool:Loaded = false;
+new bool:GMXLoaded = false, bool:UACLoading = false;
 
 enum {
 	GMX_REQ_STATUS_ERROR = 0,
@@ -31,96 +31,106 @@ enum _:GroupInfo {
 new Array:Groups = Invalid_Array, GroupsNum, Group[GroupInfo];
 
 public plugin_init() {
-	register_plugin("[UAC] GM-X Loader", "1.0.0", "F@nt0M");
+	register_plugin("[UAC] GM-X Loader", "1.0.0", "GM-X Team");
+}
+
+public GamexCfgLoaded() {
+	if (GMXLoaded) {
+		return;
+	}
+	GMXLoaded = true;
+	if (!UACLoading) {
+		return;
+	}
+
+	GamexMakeRequest("server/privileges", Invalid_GripJSONValue, "OnResponse");
+	UACLoading = false;
 }
 
 public UAC_Loading() {
 	UAC_StartLoad();
+	UACLoading = true;
 
 	new bool:needRequest = true;
 	if (!Loaded) {
-		get_localinfo("amxx_datadir", FilePath, charsmax(FilePath));
-		add(FilePath, charsmax(FilePath), "/gmx/privileges.json");
-		if (file_exists(FilePath)) {
-			new JSON:data = json_parse(FilePath, true);
-			if (data != Invalid_JSON && parseData(data)) {
-				needRequest = false;
+		get_localinfo("amxx_datadir", BackupPath, charsmax(BackupPath));
+		add(BackupPath, charsmax(BackupPath), "/gmx_privileges.json");
+		if (file_exists(BackupPath)) {
+			new error[128];
+			new GripJSONValue:data = grip_json_parse_file(BackupPath, error, charsmax(error));
+			if (data != Invalid_GripJSONValue) {
+				needRequest = !parseData(data);
+				grip_destroy_json_value(data);
 			}
 		}
+		Loaded = true;
 	}
 
-	if (needRequest) {
-		GamexMakeRequest("server/privileges", Invalid_JSON, "OnResponse");
-	} else {
+	if (!needRequest) {
 		UAC_FinishLoad();
+	} else if (GMXLoaded) {
+		GamexMakeRequest("server/privileges", Invalid_GripJSONValue, "OnResponse");
+	} else {
+		UACLoading = true;
 	}
-	Loaded = true;
 }
 
-public OnResponse(const status, const JSON:data, const userid) {
-	if (status != GMX_REQ_STATUS_OK) {
+public OnResponse(const GmxResponseStatus:status, const GripJSONValue:data, const userid) {
+	if (status != GmxResponseStatusOk) {
 		UAC_FinishLoad();
 		return;
 	}
 
 	parseData(data);
-	UAC_FinishLoad();
-	
-	json_serial_to_file(data, FilePath, false);
+	grip_json_serial_to_file(data, BackupPath, false);
 	UAC_FinishLoad();
 }
 
-bool:parseData(const JSON:data) {
-	if (!json_is_object(data)) {
-		server_print("^t IS NOT OBJECT")
+bool:parseData(const GripJSONValue:data) {
+	if (grip_json_get_type(data) != GripJSONObject) {
 		return false;
 	}
 
-	new JSON:tmp;
-	if (json_object_has_value(data, "groups", JSONArray)) {
-		tmp = json_object_get_value(data, "groups");
-		parseGroups(tmp);
-		json_free(tmp);
-	}
-	if (json_object_has_value(data, "privileges", JSONArray)) {
-		tmp = json_object_get_value(data, "privileges");
-		parsePrivileges(tmp);
-		json_free(tmp);
-	}
+	new GripJSONValue:tmp;
+	tmp = grip_json_object_get_value(data, "groups");
+	parseGroups(tmp);
+	grip_destroy_json_value(tmp);
+
+	tmp = grip_json_object_get_value(data, "privileges");
+	parsePrivileges(tmp);
+	grip_destroy_json_value(tmp);
 
 	return true;
 }
 
-parseGroups(const JSON:data) {
+parseGroups(const GripJSONValue:data) {
 	if (Groups == Invalid_Array) {
 		Groups = ArrayCreate(GroupInfo, 1);
 	} else {
 		ArrayClear(Groups);
 	}
-	for (new i = 0, n = json_array_get_count(data), JSON:tmp; i < n; i++) {
-		tmp = json_array_get_value(data, i);
-		if (json_is_object(tmp)) {
+	for (new i = 0, n = grip_json_array_get_count(data), GripJSONValue:tmp; i < n; i++) {
+		tmp = grip_json_array_get_value(data, i);
+		if (grip_json_get_type(tmp) == GripJSONObject) {
 			arrayset(Group, 0, sizeof Group);
-			Group[GroupId] = json_object_has_value(tmp, "id", JSONNumber) ? json_object_get_number(tmp, "id") : 0;
-			if (json_object_has_value(tmp, "title", JSONString)) {
-				json_object_get_string(tmp, "title", Group[GroupTitle], charsmax(Group[GroupTitle]));
-			}
-			Group[GroupFlags] = json_object_has_value(tmp, "flags", JSONNumber) ? json_object_get_number(tmp, "flags") : 0;
-			Group[GroupPriority] = json_object_has_value(tmp, "priority", JSONNumber) ? json_object_get_number(tmp, "priority") : 0;
+			Group[GroupId] = grip_json_object_get_number(tmp, "id");
+			grip_json_object_get_string(tmp, "title", Group[GroupTitle], charsmax(Group[GroupTitle]));
+			Group[GroupFlags] = grip_json_object_get_number(tmp, "flags");
+			Group[GroupPriority] = grip_json_object_get_number(tmp, "priority");
 			ArrayPushArray(Groups, Group, sizeof Group);
 		}
-		json_free(tmp);
+		grip_destroy_json_value(tmp);
 	}
 	GroupsNum = ArraySize(Groups);
 }
 
-parsePrivileges(const JSON:data) {
+parsePrivileges(const GripJSONValue:data) {
 	new now = get_systime(0);
-	new id, auth[44], password[34], access, flags, nick[32], expired, options, authTypeStr[32], AUTH_TYPE:authType;
-	for (new i = 0, n = json_array_get_count(data), JSON:tmp; i < n; i++) {
-		tmp = json_array_get_value(data, i);
-		if (!json_is_object(tmp)) {
-			json_free(tmp);
+	new id, auth[44], password[34], access, flags, nick[32], expired, options, authTypeStr[32];
+	for (new i = 0, n = grip_json_array_get_count(data), GripJSONValue:tmp, GripJSONValue:passwordValue; i < n; i++) {
+		tmp = grip_json_array_get_value(data, i);
+		if (grip_json_get_type(tmp) != GripJSONObject) {
+			grip_destroy_json_value(tmp);
 			continue;
 		}
 
@@ -132,65 +142,48 @@ parsePrivileges(const JSON:data) {
 		expired = 0;
 		options = 0;
 
-		id = json_object_has_value(tmp, "id", JSONNumber) ? json_object_get_number(tmp, "id") : 0;
-		if (json_object_has_value(tmp, "password", JSONString)) {
-			json_object_get_string(tmp, "password", password, charsmax(password));
-		}
+		id = grip_json_object_get_number(tmp, "id");
 
-		if (json_object_has_value(tmp, "auth_type", JSONString)) {
-			json_object_get_string(tmp, "auth_type", authTypeStr, charsmax(authTypeStr));
-			authType = getAuthType(authTypeStr);
-		} else {
-			authType = AUTH_TYPE_STEAM;
-		}
-		
-		switch (authType) {
+		passwordValue = grip_json_object_get_value(tmp, "password");
+		if (grip_json_get_type(passwordValue) != GripJSONNull) {
+			grip_json_get_string(passwordValue, password, charsmax(password));
+		}		
+
+		grip_json_object_get_string(tmp, "auth_type", authTypeStr, charsmax(authTypeStr));
+		switch (getAuthType(authTypeStr)) {
 			case AUTH_TYPE_STEAM: {
 				flags |= FLAG_AUTHID | FLAG_NOPASS;
-				if (json_object_has_value(tmp, "steamid", JSONString)) {
-					json_object_get_string(tmp, "steamid", auth, charsmax(auth));
-				}
+				grip_json_object_get_string(tmp, "steamid", auth, charsmax(auth));
 			}
 
 			case AUTH_TYPE_STEAM_AND_PASS: {
 				flags |= FLAG_AUTHID | FLAG_KICK;
-				if (json_object_has_value(tmp, "steamid", JSONString)) {
-					json_object_get_string(tmp, "steamid", auth, charsmax(auth));
-				}
+				grip_json_object_get_string(tmp, "steamid", auth, charsmax(auth));
 				options |= UAC_OPTIONS_MD5;
 			}
 
 			case AUTH_TYPE_NICK_AND_PASS: {
 				flags |= FLAG_KICK;
-				if (json_object_has_value(tmp, "nick", JSONString)) {
-					json_object_get_string(tmp, "nick", auth, charsmax(auth));
-				}
+				grip_json_object_get_string(tmp, "nick", auth, charsmax(auth));
 				options |= UAC_OPTIONS_MD5;
 			}
 		}
 
-		if (json_object_has_value(tmp, "nick", JSONString)) {
-			json_object_get_string(tmp, "nick", nick, charsmax(nick));
-		}
-
+		grip_json_object_get_string(tmp, "nick", nick, charsmax(nick));
 		parseUserPrivileges(tmp, access, expired);
 
-		if (expired == 0 || expired < now) {
+		if (expired == 0 || expired >= now) {
 			UAC_Put(id, auth, password, access, flags, nick, expired, options);
 		}
-		json_free(tmp);
+		grip_destroy_json_value(tmp);
 	}
 }
 
-parseUserPrivileges(const JSON:data, &access, &expired) {
-	if (!json_object_has_value(data, "privileges", JSONArray)) {
-		return;
-	}
-
-	new JSON:tmp = json_object_get_value(data, "privileges");
-	for (new i = 0, n = json_array_get_count(tmp), JSON:privilege, group_id, priority = -1; i < n; i++) {
-		privilege = json_array_get_value(tmp, i);
-		group_id = json_object_has_value(privilege, "group_id", JSONNumber) ? json_object_get_number(privilege, "group_id") : 0;
+parseUserPrivileges(const GripJSONValue:data, &access, &expired) {
+	new GripJSONValue:tmp = grip_json_object_get_value(data, "privileges");
+	for (new i = 0, n = grip_json_array_get_count(tmp), GripJSONValue:privilege, GripJSONValue:expiredVal, group_id, priority = -1; i < n; i++) {
+		privilege = grip_json_array_get_value(tmp, i);
+		group_id = grip_json_object_get_number(privilege, "group_id");
 		if (!getGroup(group_id)) {
 			continue;
 		}
@@ -198,16 +191,13 @@ parseUserPrivileges(const JSON:data, &access, &expired) {
 		access |= Group[GroupFlags];
 		if (Group[GroupPriority] > priority) {
 			priority = Group[GroupPriority];
-
-			if (json_object_has_value(privilege, "expired_at", JSONNull)) {
-				expired = 0;
-			} else if (json_object_has_value(privilege, "expired_at", JSONNumber)) {
-				expired = json_object_get_number(privilege, "expired_at");
-			}
+			expiredVal = grip_json_object_get_value(privilege, "expired_at");
+			expired = grip_json_get_type(expiredVal) != GripJSONNull ? grip_json_get_number(expiredVal) : 0;
+			grip_destroy_json_value(expiredVal);
 		}
-		json_free(privilege);
+		grip_destroy_json_value(privilege);
 	}
-	json_free(tmp);
+	grip_destroy_json_value(tmp);
 }
 
 AUTH_TYPE:getAuthType(const authType[]) {
