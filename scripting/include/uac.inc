@@ -4,6 +4,8 @@
 
 #define _uac_included
 
+#include <uac_consts>
+
 enum (<<=1) {
 	UAC_OPTIONS_MD5 = 1,
 	UAC_OPTIONS_STATIC_BANTIME,

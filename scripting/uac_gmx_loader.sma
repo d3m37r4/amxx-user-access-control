@@ -19,11 +19,9 @@ enum AUTH_TYPE {
 	AUTH_TYPE_NICK_AND_HASH
 };
 
-#define MAX_GROUP_TITLE_LENGTH 32
-
 enum _:GroupInfo {
 	GroupId,
-	GroupTitle[MAX_GROUP_TITLE_LENGTH],
+	GroupTitle[UAC_GROUP_MAX_TITLE_LENGTH],
 	GroupFlags,
 	GroupPriority
 }
@@ -43,7 +41,7 @@ public GamexCfgLoaded() {
 		return;
 	}
 
-	GamexMakeRequest("server/privileges", Invalid_GripJSONValue, "OnResponse");
+	GMX_MakeRequest("server/privileges", Invalid_GripJSONValue, "OnResponse");
 	UACLoading = false;
 }
 
@@ -69,7 +67,7 @@ public UAC_Loading() {
 	if (!needRequest) {
 		UAC_FinishLoad();
 	} else if (GMXLoaded) {
-		GamexMakeRequest("server/privileges", Invalid_GripJSONValue, "OnResponse");
+		GMX_MakeRequest("server/privileges", Invalid_GripJSONValue, "OnResponse");
 	} else {
 		UACLoading = true;
 	}
