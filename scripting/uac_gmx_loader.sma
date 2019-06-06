@@ -32,7 +32,7 @@ public plugin_init() {
 	register_plugin("[UAC] GM-X Loader", "1.0.0", "GM-X Team");
 }
 
-public GamexCfgLoaded() {
+public GMX_CfgLoaded() {
 	if (GMXLoaded) {
 		return;
 	}
@@ -86,6 +86,7 @@ public OnResponse(const GmxResponseStatus:status, const GripJSONValue:data, cons
 
 bool:parseData(const GripJSONValue:data) {
 	if (grip_json_get_type(data) != GripJSONObject) {
+		server_print("^t parseData false")
 		return false;
 	}
 
@@ -97,7 +98,7 @@ bool:parseData(const GripJSONValue:data) {
 	tmp = grip_json_object_get_value(data, "privileges");
 	parsePrivileges(tmp);
 	grip_destroy_json_value(tmp);
-
+	server_print("^t parseData true")
 	return true;
 }
 
