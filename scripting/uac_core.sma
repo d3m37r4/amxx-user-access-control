@@ -254,12 +254,16 @@ makeUserAccess(const id, const CheckResult:result) {
 	switch (result) {
 		case CHECK_DEFAULT: {
 			remove_user_flags(id);
+			new fl[32];
+			get_flags(DefaultAccess[DefaultAccessFlags][DefaultAccessFlags], fl, 31);
 			set_user_flags(id, DefaultAccess[DefaultAccessFlags][DefaultAccessFlags]);
 			printConsole(id, "* Privileges set");
 		}
 
 		case CHECK_SUCCESS: {
 			remove_user_flags(id);
+			new fl[32];
+			get_flags(Privilege[PrivilegeAccess], fl, 31);
 			set_user_flags(id, Privilege[PrivilegeAccess]);
 			UsersPrivilege[id] = Privilege;
 			printConsole(id, "* Privileges set");
@@ -328,7 +332,7 @@ CheckResult:checktUserFlags(const id, const name[] = "") {
 			continue;
 		}
 
-		makeKey(auth, flags, key, charsmax(key))
+		makeKey(auth, flags, key, charsmax(key));
 		if (TrieKeyExists(Privileges, key)) {
 			TrieGetArray(Privileges, key, Privilege, sizeof Privilege);
 			new CheckResult:checked = setUserAccess(id);
@@ -337,7 +341,6 @@ CheckResult:checktUserFlags(const id, const name[] = "") {
 			}
 		}
 	} while (SearchPriority[++i] != EOS);
-	
 	if (Mode == MODE_KICK && result == CHECK_DEFAULT) {
 		KickReason = "You have no entry to the server...";
 		return CHECK_KICK;

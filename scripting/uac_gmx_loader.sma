@@ -19,11 +19,9 @@ enum AUTH_TYPE {
 	AUTH_TYPE_NICK_AND_HASH
 };
 
-#define MAX_GROUP_TITLE_LENGTH 32
-
 enum _:GroupInfo {
 	GroupId,
-	GroupTitle[MAX_GROUP_TITLE_LENGTH],
+	GroupTitle[UAC_GROUP_MAX_TITLE_LENGTH],
 	GroupFlags,
 	GroupPriority
 }
@@ -34,7 +32,7 @@ public plugin_init() {
 	register_plugin("[UAC] GM-X Loader", "1.0.0", "GM-X Team");
 }
 
-public GamexCfgLoaded() {
+public GMX_CfgLoaded() {
 	if (GMXLoaded) {
 		return;
 	}
@@ -43,7 +41,7 @@ public GamexCfgLoaded() {
 		return;
 	}
 
-	GamexMakeRequest("server/privileges", Invalid_GripJSONValue, "OnResponse");
+	GMX_MakeRequest("server/privileges", Invalid_GripJSONValue, "OnResponse");
 	UACLoading = false;
 }
 
@@ -69,7 +67,7 @@ public UAC_Loading() {
 	if (!needRequest) {
 		UAC_FinishLoad();
 	} else if (GMXLoaded) {
-		GamexMakeRequest("server/privileges", Invalid_GripJSONValue, "OnResponse");
+		GMX_MakeRequest("server/privileges", Invalid_GripJSONValue, "OnResponse");
 	} else {
 		UACLoading = true;
 	}
@@ -88,6 +86,7 @@ public OnResponse(const GmxResponseStatus:status, const GripJSONValue:data, cons
 
 bool:parseData(const GripJSONValue:data) {
 	if (grip_json_get_type(data) != GripJSONObject) {
+		server_print("^t parseData false")
 		return false;
 	}
 
@@ -99,7 +98,7 @@ bool:parseData(const GripJSONValue:data) {
 	tmp = grip_json_object_get_value(data, "privileges");
 	parsePrivileges(tmp);
 	grip_destroy_json_value(tmp);
-
+	server_print("^t parseData true")
 	return true;
 }
 
