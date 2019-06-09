@@ -54,7 +54,7 @@ public UAC_Checked(const id, const UAC_CheckResult:found) {
 	}
 	fprintf(
 		LogFile, 
-		"Client '%s' (steamid '%s')(ip '%s') became an admin (access ^"%s^") (nick ^"%s^") (id %d) (expired %s)",
+		"Client '%s' (steamid '%s')(ip '%s') became an admin (access ^"%s^") (nick ^"%s^") (id %d) (expired %s)^n",
 		name, steamid, ip, access, nick,  UAC_GetId(), expired
 	);
 

@@ -67,7 +67,7 @@ public UAC_Loading() {
 		}
 
 		if (expiredTime == 0 || expiredTime > sysTime) {
-			UAC_Put(id, auth, password, read_flags(access), read_flags(flags), nick, expiredTime, options);
+			UAC_Push(id, auth, password, read_flags(access), read_flags(flags), nick, expiredTime, options);
 		}
 	}
 	fclose(file);

@@ -21,6 +21,7 @@ public UAC_Loading() {
 
 	if (!makeDBTuble()) {
 		loadFormBackup();
+		UAC_FinishLoad();
 		return;
 	}
 	
@@ -41,16 +42,17 @@ public LoadmDBHandle(failstate, Handle:query, const error[], errornum, const dat
 		SQL_Error(query, error, errornum, failstate);
 		SQL_FreeHandle(query);
 		loadFormBackup();
+		UAC_FinishLoad();
 		return;
 	}
 
 	new backup[128], num = 0;
 	get_localinfo("amxx_datadir", backup, charsmax(backup));
-	add(backup, charsmax(backup), "/users.bak");
+	add(backup, charsmax(backup), "/uac_amxx_users.bak");
 	new file = fopen(backup, "wb");
 
 	if (file) {
-		fwrite(file, 1, BLOCK_INT);
+		fwrite(file, 1, BLOCK_BYTE);
 		fwrite(file, num, BLOCK_INT);
 	}
 	
@@ -69,7 +71,7 @@ public LoadmDBHandle(failstate, Handle:query, const error[], errornum, const dat
 		arrayset(auth, 0, sizeof auth);
 		arrayset(password, 0, sizeof password);
 		arrayset(access, 0, sizeof access);
-		arrayset(flags, 0, sizeof access);
+		arrayset(flags, 0, sizeof flags);
 		arrayset(nick, 0, sizeof nick);
 		options = UAC_OPTIONS_MD5;
 
@@ -80,13 +82,13 @@ public LoadmDBHandle(failstate, Handle:query, const error[], errornum, const dat
 		if (access[0] == EOS) {
 			SQL_ReadResult(query, qcolAccess, access, charsmax(access));
 		}
-		SQL_ReadResult(query, qcolFlags, access, charsmax(access));
+		SQL_ReadResult(query, qcolFlags, flags, charsmax(flags));
 		SQL_ReadResult(query, qcolNick, nick, charsmax(nick));
 		if (SQL_ReadResult(query, qcolStatic) == 1) {
 			options |= UAC_OPTIONS_STATIC_BANTIME;
 		}
 		expired = SQL_ReadResult(query, qcolExpired);
-		UAC_Put(id, auth, password, read_flags(access), read_flags(flags), nick, expired, options);
+		UAC_Push(id, auth, password, read_flags(access), read_flags(flags), nick, expired, options);
 
 		if (file) {
 			fwrite(file, id, BLOCK_INT);
@@ -114,25 +116,25 @@ public LoadmDBHandle(failstate, Handle:query, const error[], errornum, const dat
 loadFormBackup() {
 	new path[128];
 	get_localinfo("amxx_datadir", path, charsmax(path));
-	add(path, charsmax(path), "/users.bak");
+	add(path, charsmax(path), "/uac_amxx_users.bak");
 	
 	new file = fopen(path, "rb");
 	if (!file) {
-		UAC_FinishLoad();
 		return;
 	}
 	
 	new version;
-	fread(file, version, BLOCK_SHORT);
+	fread(file, version, BLOCK_BYTE);
 	if (version != 1) {
-		UAC_FinishLoad();
 		return;
 	}
+
+	new now = get_systime(0);
 	
 	new num, loaded = 0;
-	fread(file, num, BLOCK_SHORT);
+	fread(file, num, BLOCK_INT);
 
-	new id, auth[32], password[34], access, flags, nick[32], expired, options
+	new id, auth[44], password[34], access, flags, nick[32], expired, options;
 	while (loaded < num && !feof(file)) {
 		arrayset(auth, 0, sizeof auth);
 		arrayset(password, 0, sizeof password);
@@ -145,6 +147,11 @@ loadFormBackup() {
 		fread_blocks(file, nick, sizeof nick, BLOCK_CHAR);
 		fread(file, expired, BLOCK_INT);
 		fread(file, options, BLOCK_INT);
+
+		if (expired == 0 || expired >= now) {
+			UAC_Push(id, auth, password, access, flags, nick, expired, options);
+		}
+
 		loaded++;
 	}
 	
