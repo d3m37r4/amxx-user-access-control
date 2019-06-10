@@ -1,5 +1,5 @@
 #include <amxmodx>
-#include "include/uac.inc"
+#include <uac>
 
 new LogFile;
 

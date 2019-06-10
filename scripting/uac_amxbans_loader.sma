@@ -1,13 +1,15 @@
 #include <amxmodx>
 #include <sqlx>
-#include "include/uac.inc"
+#include <uac>
+
+#define BAK_FILE_VERSION 2
 
 new Prefix[10] = "amx";
 new Address[MAX_IP_WITH_PORT_LENGTH] = "";
 new Handle:Tuple = Empty_Handle;
 
 public plugin_init() {
-    register_plugin("[UAC] AmxBans Loader", "1.0.0", "F@nt0M");
+	register_plugin("[UAC] AmxBans Loader", "1.0.0", "F@nt0M");
 }
 
 public plugin_end() {
@@ -52,7 +54,7 @@ public LoadmDBHandle(failstate, Handle:query, const error[], errornum, const dat
 	new file = fopen(backup, "wb");
 
 	if (file) {
-		fwrite(file, 1, BLOCK_BYTE);
+		fwrite(file, BAK_FILE_VERSION, BLOCK_BYTE);
 		fwrite(file, num, BLOCK_INT);
 	}
 	
@@ -116,12 +118,14 @@ loadFormBackup() {
 	
 	new file = fopen(path, "rb");
 	if (!file) {
+		log_amx("Can't load bakup file %s", path);
 		return;
 	}
 	
 	new version;
 	fread(file, version, BLOCK_BYTE);
-	if (version != 1) {
+	if (version != BAK_FILE_VERSION) {
+		log_amx("Bakup file version is %d. Expected %d", version, BAK_FILE_VERSION);
 		return;
 	}
 
@@ -220,8 +224,8 @@ bool:makeDBTuble() {
 	new type[10];
 	SQL_GetAffinity(type, charsmax(type));
 	if (strcmp(type, "mysql") != 0 && !SQL_SetAffinity("mysql")) {
-	    log_amx("Failed to set affinity from %s to mysql", type);
-	    return false;
+		log_amx("Failed to set affinity from %s to mysql", type);
+		return false;
 	}
 	
 	Tuple = SQL_MakeDbTuple(host, user, pass, db, timeout);

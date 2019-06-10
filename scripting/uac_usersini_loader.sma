@@ -1,5 +1,5 @@
 #include <amxmodx>
-#include "include/uac.inc"
+#include <uac>
 
 public plugin_init() {
 	register_plugin("[UAC] Users INI Loader", "1.0.0", "GM-X Team");

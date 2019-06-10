@@ -246,7 +246,6 @@ loadStart(const bool:reload) {
 
 loadFinish(const bool:timeout) {
 	Status = STATUS_LOADED;
-	ExecuteForward(Forwards[FWD_Loaded], FReturn, 0);
 
 	if (NeedRecheck) {
 		// TODO: refactor it
@@ -260,6 +259,8 @@ loadFinish(const bool:timeout) {
 	if (!timeout) {
 		remove_task(TIMEOUT_TASK_ID);
 	}
+
+	ExecuteForward(Forwards[FWD_Loaded], FReturn, 0);
 }
 
 makeUserAccess(const id, const CheckResult:result) {
