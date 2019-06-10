@@ -26,10 +26,11 @@ native UAC_GetSource();
 native UAC_GetId();
 native UAC_GetAccess();
 native UAC_GetFlags();
-native UAC_GetPassword(dest[], length);
-native UAC_GetNick(dest[], length);
+native UAC_GetPassword(dest[], const length);
+native UAC_GetPrefix(dest[], const length);
 native UAC_GetExpired();
 native UAC_GetOptions();
+native UAC_CheckPlayer(id);
 
 // native UAC_ItterReset();
 // native UAC_ItterNext();

@@ -28,7 +28,7 @@ public UAC_Loading() {
 	new query[512];
 	formatex(
 		query, charsmax(query), 
-		"SELECT aa.id, CONVERT(aa.steamid, BINARY) steamid, aa.password, aa.access, ads.custom_flags, aa.flags, CONVERT(aa.nickname, BINARY) nickname, \
+		"SELECT aa.id, CONVERT(aa.steamid, BINARY) steamid, aa.password, aa.access, ads.custom_flags, aa.flags, \
 		IF(ads.use_static_bantime = 'yes', 1, 0) use_static_bantime, aa.expired, si.id server_id FROM %s_amxadmins aa \
 		JOIN %s_admins_servers ads ON aa.id = ads.admin_id JOIN %s_serverinfo si ON ads.server_id = si.id WHERE si.address = '%s' && (aa.expired = 0 OR aa.expired > %d)",
 		Prefix, Prefix, Prefix, Address, get_systime()
@@ -62,17 +62,15 @@ public LoadmDBHandle(failstate, Handle:query, const error[], errornum, const dat
 	new qcolAccess = SQL_FieldNameToNum(query, "access");
 	new qcolCustomAccess = SQL_FieldNameToNum(query, "custom_flags");
 	new qcolFlags = SQL_FieldNameToNum(query, "flags");
-	new qcolNick = SQL_FieldNameToNum(query, "nickname");
 	new qcolStatic = SQL_FieldNameToNum(query, "use_static_bantime");
 	new qcolExpired = SQL_FieldNameToNum(query, "expired");
 	
-	new id, auth[44], password[34], access[32], flags[32], nick[32], expired, options;
+	new id, auth[MAX_AUTHID_LENGTH], password[MAX_PASSWORD_LENGTH], access[32], flags[32], expired, options;
 	while (SQL_MoreResults(query)) {
 		arrayset(auth, 0, sizeof auth);
 		arrayset(password, 0, sizeof password);
 		arrayset(access, 0, sizeof access);
 		arrayset(flags, 0, sizeof flags);
-		arrayset(nick, 0, sizeof nick);
 		options = UAC_OPTIONS_MD5;
 
 		id = SQL_ReadResult(query, qcolId);
@@ -83,12 +81,11 @@ public LoadmDBHandle(failstate, Handle:query, const error[], errornum, const dat
 			SQL_ReadResult(query, qcolAccess, access, charsmax(access));
 		}
 		SQL_ReadResult(query, qcolFlags, flags, charsmax(flags));
-		SQL_ReadResult(query, qcolNick, nick, charsmax(nick));
 		if (SQL_ReadResult(query, qcolStatic) == 1) {
 			options |= UAC_OPTIONS_STATIC_BANTIME;
 		}
 		expired = SQL_ReadResult(query, qcolExpired);
-		UAC_Push(id, auth, password, read_flags(access), read_flags(flags), nick, expired, options);
+		UAC_Push(id, auth, password, read_flags(access), read_flags(flags), "", expired, options);
 
 		if (file) {
 			fwrite(file, id, BLOCK_INT);
@@ -96,7 +93,6 @@ public LoadmDBHandle(failstate, Handle:query, const error[], errornum, const dat
 			fwrite_blocks(file, password, sizeof password, BLOCK_CHAR);
 			fwrite(file, read_flags(access), BLOCK_INT);
 			fwrite(file, read_flags(flags), BLOCK_INT);
-			fwrite_blocks(file, nick, sizeof nick, BLOCK_CHAR);
 			fwrite(file, expired, BLOCK_INT);
 			fwrite(file, options, BLOCK_INT);
 		}
@@ -134,22 +130,20 @@ loadFormBackup() {
 	new num, loaded = 0;
 	fread(file, num, BLOCK_INT);
 
-	new id, auth[44], password[34], access, flags, nick[32], expired, options;
+	new id, auth[MAX_AUTHID_LENGTH], password[MAX_PASSWORD_LENGTH], access, flags, expired, options;
 	while (loaded < num && !feof(file)) {
 		arrayset(auth, 0, sizeof auth);
 		arrayset(password, 0, sizeof password);
-		arrayset(nick, 0, sizeof nick);
 		fread(file, id, BLOCK_INT);
 		fread_blocks(file, auth, sizeof auth, BLOCK_CHAR);
 		fread_blocks(file, password, sizeof password, BLOCK_CHAR);
 		fread(file, access, BLOCK_INT);
 		fread(file, flags, BLOCK_INT);
-		fread_blocks(file, nick, sizeof nick, BLOCK_CHAR);
 		fread(file, expired, BLOCK_INT);
 		fread(file, options, BLOCK_INT);
 
 		if (expired == 0 || expired >= now) {
-			UAC_Push(id, auth, password, access, flags, nick, expired, options);
+			UAC_Push(id, auth, password, access, flags, "", expired, options);
 		}
 
 		loaded++;

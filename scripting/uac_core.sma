@@ -5,13 +5,21 @@
 #include <amxmodx>
 #include <uac>
 
-#define CHECK_NATIVE_ARGS_NUM(%1,%2) \
+#define CHECK_NATIVE_ARGS_NUM(%1,%2,%3) \
 	if (%1 < %2) { \
 		log_error(AMX_ERR_NATIVE, "Invalid num of arguments %d. Expected %d", %1, %2); \
-		return 0; \
+		return %3; \
+	}
+
+#define CHECK_NATIVE_PLAYER(%1,%2) \
+	if (!is_user_connected(%1)) { \
+		log_error(AMX_ERR_NATIVE, "Invalid player %d", %1); \
+		return %2; \
 	}
 
 #define TIMEOUT_TASK_ID 1
+
+const MAX_KEY_LENGTH = MAX_AUTHID_LENGTH + 2;
 
 enum {
 	FWD_Loading,
@@ -105,8 +113,8 @@ enum _:PrivilegeStruct {
 	PrivilegeId,
 	PrivilegeAccess,
 	PrivilegeFlags,
-	PrivilegePassword[34],
-	PrivilegeNick[32],
+	PrivilegePassword[MAX_PASSWORD_LENGTH],
+	PrivilegePrefix[MAX_PREFIX_LENGTH],
 	PrivilegeExpired,
 	PrivilegeOptions
 };
@@ -301,7 +309,6 @@ CheckResult:checkUserFlags(const id, const name[] = "") {
 	}
 	
 	#define MAX_AUTH_LENGTH 32
-	#define MAX_KEY_LENGTH 32
 	new auth[MAX_AUTH_LENGTH], key[MAX_KEY_LENGTH], i = 0, flags, CheckResult:result = CHECK_DEFAULT;
 	do {
 		switch (SearchPriority[i]) {
@@ -359,7 +366,7 @@ CheckResult:setUserAccess(const id) {
 	if (Privilege[PrivilegeFlags] & FLAG_NOPASS) {
 		return CHECK_SUCCESS;
 	} else {
-		new password[34];
+		new password[MAX_PASSWORD_LENGTH];
 		if (Privilege[PrivilegeOptions] & UAC_OPTIONS_MD5) {
 			new infoPass[40];
 			get_user_info(id, PasswordField, infoPass, charsmax(infoPass));
@@ -429,9 +436,10 @@ public plugin_natives() {
 	register_native("UAC_GetAccess", "NativeGetAccess", 0);
 	register_native("UAC_GetFlags", "NativeGetFlags", 0);
 	register_native("UAC_GetPassword", "NativeGetPassword", 0);
-	register_native("UAC_GetNick", "NativeGetNick", 0);
+	register_native("UAC_GetPrefix", "NativeGetPrefix", 0);
 	register_native("UAC_GetExpired", "NativeGetExpired", 0);
 	register_native("UAC_GetOptions", "NativeGetOptions", 0);
+	register_native("UAC_CheckPlayer", "NativeCheckPlayer", 0);
 }
 
 public NativeStartLoad(plugin) {
@@ -474,19 +482,19 @@ public NativeFinishLoad(plugin) {
 }
 
 public NativePush(plugin, argc) {
-	CHECK_NATIVE_ARGS_NUM(argc, 8)
-	enum { arg_id = 1, arg_auth, arg_password, arg_access, arg_flags, arg_nick, arg_expired, arg_options };
+	CHECK_NATIVE_ARGS_NUM(argc, 8, 0)
+	enum { arg_id = 1, arg_auth, arg_password, arg_access, arg_flags, arg_prefix, arg_expired, arg_options };
 	
 	clear_privilege();
 
-	new auth[32], key[34];
+	new auth[MAX_AUTHID_LENGTH], key[MAX_KEY_LENGTH];
 	Privilege[PrivilegeSource] = plugin;
 	Privilege[PrivilegeId] = get_param(arg_id);
 	get_string(arg_auth, auth, charsmax(auth));
 	get_string(arg_password, Privilege[PrivilegePassword], charsmax(Privilege[PrivilegePassword]));
 	Privilege[PrivilegeAccess] = get_param(arg_access);
 	Privilege[PrivilegeFlags] = get_param(arg_flags);
-	get_string(arg_nick, Privilege[PrivilegeNick], charsmax(Privilege[PrivilegeNick]));
+	get_string(arg_prefix, Privilege[PrivilegePrefix], charsmax(Privilege[PrivilegePrefix]));
 	Privilege[PrivilegeExpired] = get_param(arg_expired);
 	Privilege[PrivilegeOptions] = get_param(arg_options);
 
@@ -496,10 +504,10 @@ public NativePush(plugin, argc) {
 
 
 	// server_print(
-	// 	"^t Source %d. ID %d, Key '%s'. Password '%s'. Access %d. Flags %d. Nick '%s'. Expired %d. Option %d",
+	// 	"^t Source %d. ID %d, Key '%s'. Password '%s'. Access %d. Flags %d. Prefix '%s'. Expired %d. Option %d",
 	// 	Privilege[PrivilegeSource], Privilege[PrivilegeId], key,
 	// 	Privilege[PrivilegePassword], Privilege[PrivilegeAccess], Privilege[PrivilegeFlags],
-	// 	Privilege[PrivilegeNick], Privilege[PrivilegeExpired], Privilege[PrivilegeOptions]
+	// 	Privilege[PrivilegePrefix], Privilege[PrivilegeExpired], Privilege[PrivilegeOptions]
 	// )
 	return 1;
 }
@@ -521,15 +529,15 @@ public NativeGetFlags(plugin, argc) {
 }
 
 public NativeGetPassword(plugin, argc) {
-	CHECK_NATIVE_ARGS_NUM(argc, 2)
+	CHECK_NATIVE_ARGS_NUM(argc, 2, 0)
 	enum { arg_dest = 1, arg_length };
 	return set_string(arg_dest, Privilege[PrivilegePassword], arg_length);
 }
 
-public NativeGetNick(plugin, argc) {
-	CHECK_NATIVE_ARGS_NUM(argc, 2)
+public NativeGetPrefix(plugin, argc) {
+	CHECK_NATIVE_ARGS_NUM(argc, 2, 0)
 	enum { arg_dest = 1, arg_length };
-	return set_string(arg_dest, Privilege[PrivilegeNick], arg_length);
+	return set_string(arg_dest, Privilege[PrivilegePrefix], arg_length);
 }
 
 public NativeGetExpired(plugin, argc) {
@@ -538,6 +546,17 @@ public NativeGetExpired(plugin, argc) {
 
 public NativeGetOptions(plugin, argc) {
 	return Privilege[PrivilegeOptions];
+}
+
+public CheckResult:NativeCheckPlayer(plugin, argc) {
+	CHECK_NATIVE_ARGS_NUM(argc, 1, CHECK_IGNORE)
+	enum { arg_player = 1 };
+	new player = get_param(arg_player);
+	CHECK_NATIVE_PLAYER(player, CHECK_IGNORE)
+
+	new CheckResult:result = checkUserFlags(player);
+	makeUserAccess(player, result);
+	return result;
 }
 
 checkAPIVersion() {

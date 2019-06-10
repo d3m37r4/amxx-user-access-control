@@ -40,13 +40,13 @@ public UAC_Checked(const id, const UAC_CheckResult:found) {
 		return;
 	}
 
-	new name[MAX_NAME_LENGTH], steamid[MAX_AUTHID_LENGTH], ip[MAX_IP_LENGTH], access[32], nick[MAX_NAME_LENGTH], expired[32];
+	new name[MAX_NAME_LENGTH], steamid[MAX_AUTHID_LENGTH], ip[MAX_IP_LENGTH], access[32], prefix[MAX_PREFIX_LENGTH], expired[32];
 	
 	get_user_name(id, name, charsmax(name));
 	get_user_authid(id, steamid, charsmax(steamid));
 	get_user_ip(id, ip, charsmax(ip), 1);
 	get_flags(UAC_GetAccess(), access, charsmax(access));
-	UAC_GetNick(nick, charsmax(nick));
+	UAC_GetPrefix(prefix, charsmax(prefix));
 	if (UAC_GetExpired() > 0) {
 		format_time(expired, charsmax(expired), "%d.%m.%Y - %H:%M:%S", UAC_GetExpired());
 	} else {
@@ -54,12 +54,12 @@ public UAC_Checked(const id, const UAC_CheckResult:found) {
 	}
 	fprintf(
 		LogFile, 
-		"Client '%s' (steamid '%s')(ip '%s') became an admin (access ^"%s^") (nick ^"%s^") (id %d) (expired %s)^n",
-		name, steamid, ip, access, nick,  UAC_GetId(), expired
+		"Client '%s' (steamid '%s')(ip '%s') became an admin (access ^"%s^") (prefix ^"%s^") (id %d) (expired %s)^n",
+		name, steamid, ip, access, prefix,  UAC_GetId(), expired
 	);
 
 	server_print(
-		"Client '%s' (steamid '%s')(ip '%s') became an admin (access ^"%s^") (nick ^"%s^") (id %d) (expired %s)",
-		name, steamid, ip, access, nick,  UAC_GetId(), expired
+		"Client '%s' (steamid '%s')(ip '%s') became an admin (access ^"%s^") (prefix ^"%s^") (id %d) (expired %s)",
+		name, steamid, ip, access, prefix,  UAC_GetId(), expired
 	);
 }
