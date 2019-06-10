@@ -1,9 +1,15 @@
-// TODO: Add get* natives
 // TODO: Add natives for itterate
-// TODO: Kick player on bad password
+
+#define CHANGE_NICK_HOOK 2 // 0 - amxmodx, 1 - fakemeta, 2 - reapi
 
 #include <amxmodx>
 #include <uac>
+
+#if CHANGE_NICK_HOOK == 1
+#include <fakemeta>
+#elseif CHANGE_NICK_HOOK == 2
+#include <reapi>
+#endif
 
 #define CHECK_NATIVE_ARGS_NUM(%1,%2,%3) \
 	if (%1 < %2) { \
@@ -127,6 +133,12 @@ public plugin_init() {
 	PluginId = register_plugin("[UAC] Core", "1.0.0", "GM-X Team");
 
 	register_concmd("amx_reloadadmins", "CmdReload", ADMIN_CFG);
+
+#if defined _reapi_included
+	RegisterHookChain(RG_CBasePlayer_SetClientUserInfoName, "CBasePlayer_SetClientUserInfoName_Post", true);
+#elseif defined _fakemeta_included
+	register_forward(FM_SetClientKeyValue, "SetCleintKeyValue_Post", true);
+#endif
 	
 	new pcvar;
 	pcvar = create_cvar("amx_mode", "1", .has_min=true, .min_val=0.0, .has_max=true, .max_val=2.0);
@@ -228,6 +240,35 @@ public TaskLoadTimeout() {
 	loadFinish(true);
 }
 
+#if defined _reapi_included
+public CBasePlayer_SetClientUserInfoName_Post(const id, const infobuffer[], const name[]) {
+	remove_user_flags(id, -1);
+	makeUserAccess(id, checkUserFlags(id, name));
+}
+#elseif defined _fakemeta_included
+public SetCleintKeyValue_Post(const id, const infobuffer[], const key[], const value[]) {
+	if(strcmp(key, "name") == 0) {
+		remove_user_flags(id, -1);
+		makeUserAccess(id, checkUserFlags(id, value));
+	}
+}
+#else
+public client_infochanged(id) {
+	if (!is_user_connected(id)) {
+		return PLUGIN_CONTINUE;
+	}
+
+	new oldname[MAX_NAME_LENGTH], newname[MAX_NAME_LENGTH];
+	get_user_name(id, oldname, charsmax(oldname));
+	get_user_info(id, "name", newname, charsmax(newname));
+	if (strcmp(oldname, newname) != 0) {
+		remove_user_flags(id, -1);
+		makeUserAccess(id, checkUserFlags(id, newname));
+	}
+	return PLUGIN_CONTINUE;
+}
+#endif
+
 loadStart(const bool:reload) {
 	if (reload) {
 		TrieClear(Privileges);
@@ -248,7 +289,6 @@ loadFinish(const bool:timeout) {
 	Status = STATUS_LOADED;
 
 	if (NeedRecheck) {
-		// TODO: refactor it
 		for (new player = 1; player <= MaxClients; player++) {
 			if (is_user_connected(player)) {
 				makeUserAccess(player, checkUserFlags(player));
@@ -503,7 +543,6 @@ public NativePush(plugin, argc) {
 	TrieSetArray(Privileges, key, Privilege, sizeof Privilege);
 	PluginLoadedNum++;
 
-
 	// server_print(
 	// 	"^t Source %d. ID %d, Key '%s'. Password '%s'. Access %d. Flags %d. Prefix '%s'. Expired %d. Option %d",
 	// 	Privilege[PrivilegeSource], Privilege[PrivilegeId], key,
@@ -532,13 +571,13 @@ public NativeGetFlags(plugin, argc) {
 public NativeGetPassword(plugin, argc) {
 	CHECK_NATIVE_ARGS_NUM(argc, 2, 0)
 	enum { arg_dest = 1, arg_length };
-	return set_string(arg_dest, Privilege[PrivilegePassword], arg_length);
+	return set_string(arg_dest, Privilege[PrivilegePassword], get_param(arg_length));
 }
 
 public NativeGetPrefix(plugin, argc) {
 	CHECK_NATIVE_ARGS_NUM(argc, 2, 0)
 	enum { arg_dest = 1, arg_length };
-	return set_string(arg_dest, Privilege[PrivilegePrefix], arg_length);
+	return set_string(arg_dest, Privilege[PrivilegePrefix], get_param(arg_length));
 }
 
 public NativeGetExpired(plugin, argc) {
@@ -555,6 +594,7 @@ public CheckResult:NativeCheckPlayer(plugin, argc) {
 	new player = get_param(arg_player);
 	CHECK_NATIVE_PLAYER(player, CHECK_IGNORE)
 
+	remove_user_flags(player, -1);
 	new CheckResult:result = checkUserFlags(player);
 	makeUserAccess(player, result);
 	return result;
