@@ -40,7 +40,7 @@ public UAC_Checked(const id, const UAC_CheckResult:found) {
 		return;
 	}
 
-	new name[MAX_NAME_LENGTH], steamid[MAX_AUTHID_LENGTH], ip[MAX_IP_LENGTH], access[32], prefix[MAX_PREFIX_LENGTH], expired[32];
+	new name[MAX_NAME_LENGTH], steamid[MAX_AUTHID_LENGTH], ip[MAX_IP_LENGTH], access[32], prefix[UAC_MAX_PREFIX_LENGTH], expired[32];
 	
 	get_user_name(id, name, charsmax(name));
 	get_user_authid(id, steamid, charsmax(steamid));

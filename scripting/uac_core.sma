@@ -113,8 +113,8 @@ enum _:PrivilegeStruct {
 	PrivilegeId,
 	PrivilegeAccess,
 	PrivilegeFlags,
-	PrivilegePassword[MAX_PASSWORD_LENGTH],
-	PrivilegePrefix[MAX_PREFIX_LENGTH],
+	PrivilegePassword[UAC_MAX_PASSWORD_LENGTH],
+	PrivilegePrefix[UAC_MAX_PREFIX_LENGTH],
 	PrivilegeExpired,
 	PrivilegeOptions
 };
@@ -366,7 +366,7 @@ CheckResult:setUserAccess(const id) {
 	if (Privilege[PrivilegeFlags] & FLAG_NOPASS) {
 		return CHECK_SUCCESS;
 	} else {
-		new password[MAX_PASSWORD_LENGTH];
+		new password[UAC_MAX_PASSWORD_LENGTH];
 		if (Privilege[PrivilegeOptions] & UAC_OPTIONS_MD5) {
 			new infoPass[40];
 			get_user_info(id, PasswordField, infoPass, charsmax(infoPass));

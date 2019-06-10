@@ -21,7 +21,7 @@ forward UAC_Pushed();
 
 native UAC_StartLoad();
 native UAC_FinishLoad();
-native UAC_Push(const id, const authid[], const password[], const access, const flags, const nick[], const expired, const otpions);
+native UAC_Push(const id, const authid[], const password[], const access, const flags, const prefix[], const expired, const otpions);
 native UAC_GetSource();
 native UAC_GetId();
 native UAC_GetAccess();

@@ -20,7 +20,7 @@ public UAC_Loading() {
 	new line[512], semicolonPos = 0;
 	new sysTime = get_systime();
 	new id = 0;
-	new auth[MAX_AUTHID_LENGTH], password[MAX_PASSWORD_LENGTH], access[32], flags[32], expired[32], staticBanTime[2], expiredTime, options;
+	new auth[MAX_AUTHID_LENGTH], password[UAC_MAX_PASSWORD_LENGTH], access[32], flags[32], expired[32], staticBanTime[2], expiredTime, options;
 
 	while (!feof(file)) {
 		arrayset(line, 0, sizeof line);

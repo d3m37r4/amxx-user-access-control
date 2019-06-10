@@ -65,7 +65,7 @@ public LoadmDBHandle(failstate, Handle:query, const error[], errornum, const dat
 	new qcolStatic = SQL_FieldNameToNum(query, "use_static_bantime");
 	new qcolExpired = SQL_FieldNameToNum(query, "expired");
 	
-	new id, auth[MAX_AUTHID_LENGTH], password[MAX_PASSWORD_LENGTH], access[32], flags[32], expired, options;
+	new id, auth[MAX_AUTHID_LENGTH], password[UAC_MAX_PASSWORD_LENGTH], access[32], flags[32], expired, options;
 	while (SQL_MoreResults(query)) {
 		arrayset(auth, 0, sizeof auth);
 		arrayset(password, 0, sizeof password);
@@ -130,7 +130,7 @@ loadFormBackup() {
 	new num, loaded = 0;
 	fread(file, num, BLOCK_INT);
 
-	new id, auth[MAX_AUTHID_LENGTH], password[MAX_PASSWORD_LENGTH], access, flags, expired, options;
+	new id, auth[MAX_AUTHID_LENGTH], password[UAC_MAX_PASSWORD_LENGTH], access, flags, expired, options;
 	while (loaded < num && !feof(file)) {
 		arrayset(auth, 0, sizeof auth);
 		arrayset(password, 0, sizeof password);
