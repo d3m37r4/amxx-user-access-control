@@ -1,5 +1,5 @@
 #include <amxmodx>
-#include "include/uac.inc"
+#include <uac>
 
 public plugin_init() {
 	register_plugin("[UAC] Users INI Loader", "1.0.0", "GM-X Team");
@@ -20,7 +20,7 @@ public UAC_Loading() {
 	new line[512], semicolonPos = 0;
 	new sysTime = get_systime();
 	new id = 0;
-	new auth[44], password[34], access[32], flags[32], nick[32], expired[32], staticBanTime[2], expiredTime, options;
+	new auth[MAX_AUTHID_LENGTH], password[UAC_MAX_PASSWORD_LENGTH], access[32], flags[32], expired[32], staticBanTime[2], expiredTime, options;
 
 	while (!feof(file)) {
 		arrayset(line, 0, sizeof line);
@@ -41,17 +41,12 @@ public UAC_Loading() {
 		arrayset(password, 0, sizeof password);
 		arrayset(access, 0, sizeof access);
 		arrayset(flags, 0, sizeof flags);
-		arrayset(nick, 0, sizeof nick);
 		arrayset(expired, 0, sizeof expired);
 		arrayset(staticBanTime, 0, sizeof staticBanTime);
 
 		if (parse(line, auth, charsmax(auth), password, charsmax(password), access, charsmax(access), flags, charsmax(flags), 
-			staticBanTime, charsmax(staticBanTime), expired, charsmax(expired), nick, charsmax(nick)) < 4) {
+			staticBanTime, charsmax(staticBanTime), expired, charsmax(expired)) < 4) {
 			continue;
-		}
-
-		if (nick[0] == EOS) {
-			copy(nick, charsmax(nick), auth);
 		}
 
 		options = 0;
@@ -67,7 +62,7 @@ public UAC_Loading() {
 		}
 
 		if (expiredTime == 0 || expiredTime > sysTime) {
-			UAC_Put(id, auth, password, read_flags(access), read_flags(flags), nick, expiredTime, options);
+			UAC_Push(id, auth, password, read_flags(access), read_flags(flags), "", expiredTime, options);
 		}
 	}
 	fclose(file);

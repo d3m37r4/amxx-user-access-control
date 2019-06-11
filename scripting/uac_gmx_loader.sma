@@ -86,7 +86,6 @@ public OnResponse(const GmxResponseStatus:status, const GripJSONValue:data, cons
 
 bool:parseData(const GripJSONValue:data) {
 	if (grip_json_get_type(data) != GripJSONObject) {
-		server_print("^t parseData false")
 		return false;
 	}
 
@@ -98,7 +97,6 @@ bool:parseData(const GripJSONValue:data) {
 	tmp = grip_json_object_get_value(data, "privileges");
 	parsePrivileges(tmp);
 	grip_destroy_json_value(tmp);
-	server_print("^t parseData true")
 	return true;
 }
 
@@ -125,7 +123,7 @@ parseGroups(const GripJSONValue:data) {
 
 parsePrivileges(const GripJSONValue:data) {
 	new now = get_systime(0);
-	new id, auth[44], password[34], access, flags, nick[32], expired, options, authTypeStr[32];
+	new id, auth[MAX_AUTHID_LENGTH], password[UAC_MAX_PASSWORD_LENGTH], access, flags, expired, prefix[UAC_MAX_PREFIX_LENGTH], options, authTypeStr[32];
 	for (new i = 0, n = grip_json_array_get_count(data), GripJSONValue:tmp, GripJSONValue:passwordValue; i < n; i++) {
 		tmp = grip_json_array_get_value(data, i);
 		if (grip_json_get_type(tmp) != GripJSONObject) {
@@ -135,7 +133,6 @@ parsePrivileges(const GripJSONValue:data) {
 
 		arrayset(auth, 0, sizeof auth);
 		arrayset(password, 0, sizeof password);
-		arrayset(nick, 0, sizeof nick);
 		access = 0;
 		flags = 0;
 		expired = 0;
@@ -168,35 +165,33 @@ parsePrivileges(const GripJSONValue:data) {
 			}
 		}
 
-		grip_json_object_get_string(tmp, "nick", nick, charsmax(nick));
-		parseUserPrivileges(tmp, access, expired);
+		new GripJSONValue:privileges = grip_json_object_get_value(tmp, "privileges");
+		for (new j = 0, k = grip_json_array_get_count(privileges), GripJSONValue:privilege, GripJSONValue:expiredVal, group_id, priority = -1; j < k; j++) {
+			privilege = grip_json_array_get_value(privileges, j);
+			group_id = grip_json_object_get_number(privilege, "group_id");
+			if (!getGroup(group_id)) {
+				grip_destroy_json_value(privilege);
+				continue;
+			}
+
+			access |= Group[GroupFlags];
+			if (Group[GroupPriority] > priority) {
+				priority = Group[GroupPriority];
+				expiredVal = grip_json_object_get_value(privilege, "expired_at");
+				expired = grip_json_get_type(expiredVal) != GripJSONNull ? grip_json_get_number(expiredVal) : 0;
+				grip_destroy_json_value(expiredVal);
+				grip_json_object_get_string(privilege, "prefix", prefix, charsmax(prefix));
+			}
+			grip_destroy_json_value(privilege);
+		}
+		grip_destroy_json_value(privileges);
 
 		if (expired == 0 || expired >= now) {
-			UAC_Put(id, auth, password, access, flags, nick, expired, options);
+			UAC_Push(id, auth, password, access, flags, prefix, expired, options);
 		}
+
 		grip_destroy_json_value(tmp);
 	}
-}
-
-parseUserPrivileges(const GripJSONValue:data, &access, &expired) {
-	new GripJSONValue:tmp = grip_json_object_get_value(data, "privileges");
-	for (new i = 0, n = grip_json_array_get_count(tmp), GripJSONValue:privilege, GripJSONValue:expiredVal, group_id, priority = -1; i < n; i++) {
-		privilege = grip_json_array_get_value(tmp, i);
-		group_id = grip_json_object_get_number(privilege, "group_id");
-		if (!getGroup(group_id)) {
-			continue;
-		}
-
-		access |= Group[GroupFlags];
-		if (Group[GroupPriority] > priority) {
-			priority = Group[GroupPriority];
-			expiredVal = grip_json_object_get_value(privilege, "expired_at");
-			expired = grip_json_get_type(expiredVal) != GripJSONNull ? grip_json_get_number(expiredVal) : 0;
-			grip_destroy_json_value(expiredVal);
-		}
-		grip_destroy_json_value(privilege);
-	}
-	grip_destroy_json_value(tmp);
 }
 
 AUTH_TYPE:getAuthType(const authType[]) {

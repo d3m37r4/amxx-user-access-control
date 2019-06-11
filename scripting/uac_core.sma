@@ -1,24 +1,39 @@
-// TODO: Add get* natives
 // TODO: Add natives for itterate
-// TODO: Kick player on bad password
+
+#define CHANGE_NICK_HOOK 2 // 0 - amxmodx, 1 - fakemeta, 2 - reapi
 
 #include <amxmodx>
 #include <uac>
 
-#define CHECK_NATIVE_ARGS_NUM(%1,%2) \
+#if CHANGE_NICK_HOOK == 1
+#include <fakemeta>
+#elseif CHANGE_NICK_HOOK == 2
+#include <reapi>
+#endif
+
+#define CHECK_NATIVE_ARGS_NUM(%1,%2,%3) \
 	if (%1 < %2) { \
 		log_error(AMX_ERR_NATIVE, "Invalid num of arguments %d. Expected %d", %1, %2); \
-		return 0; \
+		return %3; \
+	}
+
+#define CHECK_NATIVE_PLAYER(%1,%2) \
+	if (!is_user_connected(%1)) { \
+		log_error(AMX_ERR_NATIVE, "Invalid player %d", %1); \
+		return %2; \
 	}
 
 #define TIMEOUT_TASK_ID 1
+
+const MAX_KEY_LENGTH = MAX_AUTHID_LENGTH + 2;
 
 enum {
 	FWD_Loading,
 	FWD_Loaded,
 	FWD_Checking,
 	FWD_Checked,
-	FWD_Added,
+	FWD_Pushing,
+	FWD_Pushed,
 
 	FWD_LAST
 };
@@ -104,19 +119,26 @@ enum _:PrivilegeStruct {
 	PrivilegeId,
 	PrivilegeAccess,
 	PrivilegeFlags,
-	PrivilegePassword[34],
-	PrivilegeNick[32],
+	PrivilegePassword[UAC_MAX_PASSWORD_LENGTH],
+	PrivilegePrefix[UAC_MAX_PREFIX_LENGTH],
 	PrivilegeExpired,
 	PrivilegeOptions
 };
 
+new PluginId;
 new Trie:Privileges, Privilege[PrivilegeStruct];
 new UsersPrivilege[MAX_PLAYERS + 1][PrivilegeStruct];
 
 public plugin_init() {
-	register_plugin("[UAC] Core", "1.0.0", "GM-X Team");
+	PluginId = register_plugin("[UAC] Core", "1.0.0", "GM-X Team");
 
 	register_concmd("amx_reloadadmins", "CmdReload", ADMIN_CFG);
+
+#if defined _reapi_included
+	RegisterHookChain(RG_CBasePlayer_SetClientUserInfoName, "CBasePlayer_SetClientUserInfoName_Post", true);
+#elseif defined _fakemeta_included
+	register_forward(FM_SetClientKeyValue, "SetCleintKeyValue_Post", true);
+#endif
 	
 	new pcvar;
 	pcvar = create_cvar("amx_mode", "1", .has_min=true, .min_val=0.0, .has_max=true, .max_val=2.0);
@@ -140,9 +162,10 @@ public plugin_init() {
 
 	Forwards[FWD_Loading] = CreateMultiForward("UAC_Loading", ET_IGNORE, FP_CELL);
 	Forwards[FWD_Loaded] = CreateMultiForward("UAC_Loaded", ET_IGNORE, FP_CELL);
-	Forwards[FWD_Checking] = CreateMultiForward("UAC_Checking", ET_IGNORE, FP_CELL);
+	Forwards[FWD_Checking] = CreateMultiForward("UAC_Checking", ET_STOP, FP_CELL);
 	Forwards[FWD_Checked] = CreateMultiForward("UAC_Checked", ET_IGNORE, FP_CELL, FP_CELL);
-	Forwards[FWD_Added] = CreateMultiForward("UAC_Added", ET_IGNORE);
+	Forwards[FWD_Pushing] = CreateMultiForward("UAC_Pushing", ET_IGNORE);
+	Forwards[FWD_Pushed] = CreateMultiForward("UAC_Pushed", ET_IGNORE);
 
 	loadStart(false);
 }
@@ -153,6 +176,7 @@ public plugin_cfg() {
 		get_pcvar_string(DefaultAccess[i][DefaultAccessCvar], flags, charsmax(flags));
 		DefaultAccess[i][DefaultAccessFlags] = read_flags(flags);
 	}
+	checkAPIVersion();
 }
 
 public plugin_end() {
@@ -193,14 +217,14 @@ public client_connect(id) {
 
 public client_authorized(id) {
 	add_user_state(id, STATE_CONNECTING);
-	makeUserAccess(id, checktUserFlags(id));
+	makeUserAccess(id, checkUserFlags(id));
 }
 
 public client_putinserver(id) {
 	if (get_user_state(id, STATE_CONNECTING)) {
 		remove_user_state(id, STATE_CONNECTING);
 	} else {
-		makeUserAccess(id, checktUserFlags(id));
+		makeUserAccess(id, checkUserFlags(id));
 	}
 	add_user_state(id, STATE_CONNECTED);
 }
@@ -215,6 +239,35 @@ public client_disconnected(id) {
 public TaskLoadTimeout() {
 	loadFinish(true);
 }
+
+#if defined _reapi_included
+public CBasePlayer_SetClientUserInfoName_Post(const id, const infobuffer[], const name[]) {
+	remove_user_flags(id, -1);
+	makeUserAccess(id, checkUserFlags(id, name));
+}
+#elseif defined _fakemeta_included
+public SetCleintKeyValue_Post(const id, const infobuffer[], const key[], const value[]) {
+	if(strcmp(key, "name") == 0) {
+		remove_user_flags(id, -1);
+		makeUserAccess(id, checkUserFlags(id, value));
+	}
+}
+#else
+public client_infochanged(id) {
+	if (!is_user_connected(id)) {
+		return PLUGIN_CONTINUE;
+	}
+
+	new oldname[MAX_NAME_LENGTH], newname[MAX_NAME_LENGTH];
+	get_user_name(id, oldname, charsmax(oldname));
+	get_user_info(id, "name", newname, charsmax(newname));
+	if (strcmp(oldname, newname) != 0) {
+		remove_user_flags(id, -1);
+		makeUserAccess(id, checkUserFlags(id, newname));
+	}
+	return PLUGIN_CONTINUE;
+}
+#endif
 
 loadStart(const bool:reload) {
 	if (reload) {
@@ -234,13 +287,11 @@ loadStart(const bool:reload) {
 
 loadFinish(const bool:timeout) {
 	Status = STATUS_LOADED;
-	ExecuteForward(Forwards[FWD_Loaded], FReturn, 0);
 
 	if (NeedRecheck) {
-		// TODO: refactor it
 		for (new player = 1; player <= MaxClients; player++) {
 			if (is_user_connected(player)) {
-				makeUserAccess(player, checktUserFlags(player));
+				makeUserAccess(player, checkUserFlags(player));
 			}
 		}
 	}
@@ -248,6 +299,8 @@ loadFinish(const bool:timeout) {
 	if (!timeout) {
 		remove_task(TIMEOUT_TASK_ID);
 	}
+
+	ExecuteForward(Forwards[FWD_Loaded], FReturn, 0);
 }
 
 makeUserAccess(const id, const CheckResult:result) {
@@ -276,7 +329,12 @@ makeUserAccess(const id, const CheckResult:result) {
 	ExecuteForward(Forwards[FWD_Checked], FReturn, id, result);
 }
 
-CheckResult:checktUserFlags(const id, const name[] = "") {
+CheckResult:checkUserFlags(const id, const name[] = "") {
+	ExecuteForward(Forwards[FWD_Checking], FReturn, id);
+	if (FReturn == PLUGIN_HANDLED) {
+		return CHECK_IGNORE;
+	}
+
 	if (Mode == MODE_DISABLE) {
 		return CHECK_IGNORE;
 	}
@@ -290,11 +348,8 @@ CheckResult:checktUserFlags(const id, const name[] = "") {
 		set_user_flags(id, DefaultAccess[DefaultAccessBOT][DefaultAccessFlags]);
 		return CHECK_IGNORE;
 	}
-
-	ExecuteForward(Forwards[FWD_Checking], FReturn, id);
 	
 	#define MAX_AUTH_LENGTH 32
-	#define MAX_KEY_LENGTH 32
 	new auth[MAX_AUTH_LENGTH], key[MAX_KEY_LENGTH], i = 0, flags, CheckResult:result = CHECK_DEFAULT;
 	do {
 		switch (SearchPriority[i]) {
@@ -352,7 +407,7 @@ CheckResult:setUserAccess(const id) {
 	if (Privilege[PrivilegeFlags] & FLAG_NOPASS) {
 		return CHECK_SUCCESS;
 	} else {
-		new password[34];
+		new password[UAC_MAX_PASSWORD_LENGTH];
 		if (Privilege[PrivilegeOptions] & UAC_OPTIONS_MD5) {
 			new infoPass[40];
 			get_user_info(id, PasswordField, infoPass, charsmax(infoPass));
@@ -414,7 +469,7 @@ printConsole(id, const msg[]) {
 
 // NATIVES
 public plugin_natives() {
-	register_native("UAC_Put", "NativePut", 0);
+	register_native("UAC_Push", "NativePush", 0);
 	register_native("UAC_StartLoad", "NativeStartLoad", 0);
 	register_native("UAC_FinishLoad", "NativeFinishLoad", 0);
 	register_native("UAC_GetSource", "NativeGetSource", 0);
@@ -422,9 +477,10 @@ public plugin_natives() {
 	register_native("UAC_GetAccess", "NativeGetAccess", 0);
 	register_native("UAC_GetFlags", "NativeGetFlags", 0);
 	register_native("UAC_GetPassword", "NativeGetPassword", 0);
-	register_native("UAC_GetNick", "NativeGetNick", 0);
+	register_native("UAC_GetPrefix", "NativeGetPrefix", 0);
 	register_native("UAC_GetExpired", "NativeGetExpired", 0);
 	register_native("UAC_GetOptions", "NativeGetOptions", 0);
+	register_native("UAC_CheckPlayer", "NativeCheckPlayer", 0);
 }
 
 public NativeStartLoad(plugin) {
@@ -466,26 +522,33 @@ public NativeFinishLoad(plugin) {
 	return 1;
 }
 
-public NativePut(plugin, argc) {
-	CHECK_NATIVE_ARGS_NUM(argc, 8)
-	enum { arg_id = 1, arg_auth, arg_password, arg_access, arg_flags, arg_nick, arg_expired, arg_options };
+public NativePush(plugin, argc) {
+	CHECK_NATIVE_ARGS_NUM(argc, 8, 0)
+	enum { arg_id = 1, arg_auth, arg_password, arg_access, arg_flags, arg_prefix, arg_expired, arg_options };
 	
 	clear_privilege();
 
-	new auth[32], key[34];
+	new auth[MAX_AUTHID_LENGTH], key[MAX_KEY_LENGTH];
 	Privilege[PrivilegeSource] = plugin;
 	Privilege[PrivilegeId] = get_param(arg_id);
 	get_string(arg_auth, auth, charsmax(auth));
-	get_string(arg_password, Privilege[PrivilegePassword], 33);
+	get_string(arg_password, Privilege[PrivilegePassword], charsmax(Privilege[PrivilegePassword]));
 	Privilege[PrivilegeAccess] = get_param(arg_access);
 	Privilege[PrivilegeFlags] = get_param(arg_flags);
-	get_string(arg_nick, Privilege[PrivilegeNick], 31);
+	get_string(arg_prefix, Privilege[PrivilegePrefix], charsmax(Privilege[PrivilegePrefix]));
 	Privilege[PrivilegeExpired] = get_param(arg_expired);
 	Privilege[PrivilegeOptions] = get_param(arg_options);
 
 	makeKey(auth, Privilege[PrivilegeFlags], key, charsmax(key));
 	TrieSetArray(Privileges, key, Privilege, sizeof Privilege);
 	PluginLoadedNum++;
+
+	// server_print(
+	// 	"^t Source %d. ID %d, Key '%s'. Password '%s'. Access %d. Flags %d. Prefix '%s'. Expired %d. Option %d",
+	// 	Privilege[PrivilegeSource], Privilege[PrivilegeId], key,
+	// 	Privilege[PrivilegePassword], Privilege[PrivilegeAccess], Privilege[PrivilegeFlags],
+	// 	Privilege[PrivilegePrefix], Privilege[PrivilegeExpired], Privilege[PrivilegeOptions]
+	// )
 	return 1;
 }
 
@@ -506,15 +569,15 @@ public NativeGetFlags(plugin, argc) {
 }
 
 public NativeGetPassword(plugin, argc) {
-	CHECK_NATIVE_ARGS_NUM(argc, 2)
+	CHECK_NATIVE_ARGS_NUM(argc, 2, 0)
 	enum { arg_dest = 1, arg_length };
-	return set_string(arg_dest, Privilege[PrivilegePassword], arg_length);
+	return set_string(arg_dest, Privilege[PrivilegePassword], get_param(arg_length));
 }
 
-public NativeGetNick(plugin, argc) {
-	CHECK_NATIVE_ARGS_NUM(argc, 2)
+public NativeGetPrefix(plugin, argc) {
+	CHECK_NATIVE_ARGS_NUM(argc, 2, 0)
 	enum { arg_dest = 1, arg_length };
-	return set_string(arg_dest, Privilege[PrivilegeNick], arg_length);
+	return set_string(arg_dest, Privilege[PrivilegePrefix], get_param(arg_length));
 }
 
 public NativeGetExpired(plugin, argc) {
@@ -523,4 +586,43 @@ public NativeGetExpired(plugin, argc) {
 
 public NativeGetOptions(plugin, argc) {
 	return Privilege[PrivilegeOptions];
+}
+
+public CheckResult:NativeCheckPlayer(plugin, argc) {
+	CHECK_NATIVE_ARGS_NUM(argc, 1, CHECK_IGNORE)
+	enum { arg_player = 1 };
+	new player = get_param(arg_player);
+	CHECK_NATIVE_PLAYER(player, CHECK_IGNORE)
+
+	remove_user_flags(player, -1);
+	new CheckResult:result = checkUserFlags(player);
+	makeUserAccess(player, result);
+	return result;
+}
+
+checkAPIVersion() {
+	for(new i, n = get_pluginsnum(), status[2], func; i < n; i++) {
+		if(i == PluginId) {
+			continue;
+		}
+
+		get_plugin(i, .status = status, .len5 = charsmax(status));
+
+		//status debug || status running
+		if(status[0] != 'd' && status[0] != 'r') {
+			continue;
+		}
+	
+		func = get_func_id("__uac_version_check", i);
+
+		if(func == -1) {
+			continue;
+		}
+
+		if(callfunc_begin_i(func, i) == 1) {
+			callfunc_push_int(UAC_MAJOR_VERSION);
+			callfunc_push_int(UAC_MINOR_VERSION);
+			callfunc_end();
+		}
+	}
 }
