@@ -23,7 +23,8 @@ enum _:GroupInfo {
 	GroupId,
 	GroupTitle[UAC_GROUP_MAX_TITLE_LENGTH],
 	GroupFlags,
-	GroupPriority
+	GroupPriority,
+	GroupPrefix[UAC_MAX_PREFIX_LENGTH]
 }
 
 new Array:Groups = Invalid_Array, GroupsNum, Group[GroupInfo];
@@ -114,6 +115,7 @@ parseGroups(const GripJSONValue:data) {
 			grip_json_object_get_string(tmp, "title", Group[GroupTitle], charsmax(Group[GroupTitle]));
 			Group[GroupFlags] = grip_json_object_get_number(tmp, "flags");
 			Group[GroupPriority] = grip_json_object_get_number(tmp, "priority");
+			grip_json_object_get_string(tmp, "title", Group[GroupPrefix], charsmax(Group[GroupPrefix]));
 			ArrayPushArray(Groups, Group, sizeof Group);
 		}
 		grip_destroy_json_value(tmp);
@@ -180,7 +182,7 @@ parsePrivileges(const GripJSONValue:data) {
 				expiredVal = grip_json_object_get_value(privilege, "expired_at");
 				expired = grip_json_get_type(expiredVal) != GripJSONNull ? grip_json_get_number(expiredVal) : 0;
 				grip_destroy_json_value(expiredVal);
-				grip_json_object_get_string(privilege, "prefix", prefix, charsmax(prefix));
+				copy(prefix, charsmax(prefix), Group[GroupPrefix]);
 			}
 			grip_destroy_json_value(privilege);
 		}
