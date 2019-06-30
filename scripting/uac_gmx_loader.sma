@@ -115,7 +115,12 @@ parseGroups(const GripJSONValue:data) {
 			grip_json_object_get_string(tmp, "title", Group[GroupTitle], charsmax(Group[GroupTitle]));
 			Group[GroupFlags] = grip_json_object_get_number(tmp, "flags");
 			Group[GroupPriority] = grip_json_object_get_number(tmp, "priority");
-			grip_json_object_get_string(tmp, "title", Group[GroupPrefix], charsmax(Group[GroupPrefix]));
+
+			new GripJSONValue:prefix = grip_json_object_get_value(tmp, "prefix");
+			if (grip_json_get_type(prefix) != GripJSONNull) {
+				grip_json_get_string(prefix, Group[GroupPrefix], charsmax(Group[GroupPrefix]));
+			}
+			grip_destroy_json_value(prefix);
 			ArrayPushArray(Groups, Group, sizeof Group);
 		}
 		grip_destroy_json_value(tmp);
