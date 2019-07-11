@@ -105,7 +105,7 @@ enum (<<=1) {
 #define remove_user_state(%1,%2) 	remove_user_flags(%1, %2, STATES_SET_ID)
 #define clear_user_state(%1) 		remove_user_flags(%1, -1, STATES_SET_ID)
 #define clear_privilege() arrayset(Privilege, 0 , sizeof Privilege)
-#define clear_user_privilege(%1) arrayset(UsersPrivilege[%1], 0 , sizeof Privilege[])
+#define clear_user_privilege(%1) arrayset(UsersPrivilege[%1], 0 , sizeof UsersPrivilege[])
 
 enum CheckResult {
 	CHECK_IGNORE,
