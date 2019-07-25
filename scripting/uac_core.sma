@@ -488,7 +488,7 @@ public plugin_natives() {
 	register_native("UAC_GetPassword", "NativeGetPassword", 0);
 	register_native("UAC_GetPrefix", "NativeGetPrefix", 0);
 	register_native("UAC_GetExpired", "NativeGetExpired", 0);
-	register_native("UAC_SetFlags", "NativeSetFlags", 0);
+	register_native("UAC_SetAccess", "NativeSetAccess", 0);
 	register_native("UAC_GetOptions", "NativeGetOptions", 0);
 	register_native("UAC_CheckPlayer", "NativeCheckPlayer", 0);
 	register_native("UAC_IterReset", "NativeIterReset", 0);
@@ -603,10 +603,10 @@ public NativeGetOptions(plugin, argc) {
 	return Privilege[PrivilegeOptions];
 }
 
-public NativeSetFlags(plugin, argc) {
+public NativeSetAccess(plugin, argc) {
 	CHECK_NATIVE_ARGS_NUM(argc, 1, 0)
-	enum { arg_flags = 1 };
-	Privilege[PrivilegeFlags] = get_param(arg_flags);
+	enum { arg_access = 1 };
+	Privilege[PrivilegeAccess] = get_param(arg_access);
 	return 1;
 }
 
