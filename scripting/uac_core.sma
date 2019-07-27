@@ -313,8 +313,6 @@ loadFinish(const bool:timeout) {
 }
 
 makeUserAccess(const id, CheckResult:result) {
-	ExecuteForward(Forwards[FWD_Checked], FReturn, id, result);
-	result = CheckResult:FReturn;
 	switch (result) {
 		case CHECK_DEFAULT: {
 			remove_user_flags(id);
@@ -337,6 +335,7 @@ makeUserAccess(const id, CheckResult:result) {
 			server_cmd("kick #%d ^"%s^"", get_user_userid(id), KickReason);
 		}
 	}
+	ExecuteForward(Forwards[FWD_Checked], FReturn, id, result);
 }
 
 CheckResult:checkUserFlags(const id, const name[] = "") {
