@@ -1,3 +1,5 @@
+#pragma semicolon 1
+
 #define CHANGE_NICK_HOOK 2 // 0 - amxmodx, 1 - fakemeta, 2 - reapi
 
 #include <amxmodx>
@@ -317,9 +319,9 @@ makeUserAccess(const id, CheckResult:result) {
 		case CHECK_DEFAULT: {
 			remove_user_flags(id);
 			if (is_user_bot(id)) {
-				set_user_flags(id, DefaultAccess[DefaultAccessPlayer][DefaultAccessFlags]);
-			} else {
 				set_user_flags(id, DefaultAccess[DefaultAccessBOT][DefaultAccessFlags]);
+			} else {
+				set_user_flags(id, DefaultAccess[DefaultAccessPlayer][DefaultAccessFlags]);
 			}
 			
 		}
