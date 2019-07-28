@@ -496,6 +496,7 @@ public plugin_natives() {
 	register_native("UAC_IterEnded", "NativeIterEnded", 0);
 	register_native("UAC_IterNext", "NativeIterNext", 0);
 	register_native("UAC_GetPlayerPrivilege", "NativeGetPlayerPrivilege", 0);
+	register_native("UAC_GetPlayerExpired", "NativeGetPlayerExpired", 0);
 }
 
 public NativeStartLoad(plugin) {
@@ -648,6 +649,15 @@ public NativeGetPlayerPrivilege(plugin, argc) {
 	
 	Privilege = UsersPrivilege[player];
 	return 1;
+}
+
+public NativeGetPlayerExpired(plugin, argc) {
+	CHECK_NATIVE_ARGS_NUM(argc, 1, -1)
+	enum { arg_player = 1 };
+	new player = get_param(arg_player);
+	CHECK_NATIVE_PLAYER(player, -1)
+	
+	return UsersPrivilege[player][PrivilegeExpired];
 }
 
 checkAPIVersion() {

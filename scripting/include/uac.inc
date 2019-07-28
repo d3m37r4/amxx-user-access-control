@@ -36,6 +36,7 @@ native UAC_IterReset();
 native UAC_IterEnded();
 native UAC_IterNext();
 native UAC_GetPlayerPrivilege(const player);
+native UAC_GetPlayerExpired(const player);
 
 /*
 * This is callback from GMX Core that gives major/minor versions for verifying compatibility for GMX versions.
