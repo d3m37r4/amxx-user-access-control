@@ -131,7 +131,7 @@ parseGroups(const GripJSONValue:data) {
 parsePrivileges(const GripJSONValue:data) {
 	new now = get_systime(0);
 	new id, auth[MAX_AUTHID_LENGTH], password[UAC_MAX_PASSWORD_LENGTH], access, flags, expired, prefix[UAC_MAX_PREFIX_LENGTH], options, authTypeStr[32];
-	for (new i = 0, n = grip_json_array_get_count(data), GripJSONValue:tmp, GripJSONValue:passwordValue; i < n; i++) {
+	for (new i = 0, n = grip_json_array_get_count(data), GripJSONValue:tmp, GripJSONValue:passwordValue, GripJSONValue:prefixValue; i < n; i++) {
 		tmp = grip_json_array_get_value(data, i);
 		if (grip_json_get_type(tmp) != GripJSONObject) {
 			grip_destroy_json_value(tmp);
@@ -140,6 +140,7 @@ parsePrivileges(const GripJSONValue:data) {
 
 		arrayset(auth, 0, sizeof auth);
 		arrayset(password, 0, sizeof password);
+		arrayset(prefix, 0, sizeof prefix);
 		access = 0;
 		flags = 0;
 		expired = 0;
@@ -150,7 +151,14 @@ parsePrivileges(const GripJSONValue:data) {
 		passwordValue = grip_json_object_get_value(tmp, "password");
 		if (grip_json_get_type(passwordValue) != GripJSONNull) {
 			grip_json_get_string(passwordValue, password, charsmax(password));
-		}		
+		}	
+		grip_destroy_json_value(passwordValue);
+
+		prefixValue = grip_json_object_get_value(tmp, "prefix");
+		if (grip_json_get_type(prefixValue) != GripJSONNull) {
+			grip_json_get_string(prefixValue, prefix, charsmax(prefix));
+		}
+		grip_destroy_json_value(prefixValue);
 
 		grip_json_object_get_string(tmp, "auth_type", authTypeStr, charsmax(authTypeStr));
 		switch (getAuthType(authTypeStr)) {
@@ -187,7 +195,10 @@ parsePrivileges(const GripJSONValue:data) {
 				expiredVal = grip_json_object_get_value(privilege, "expired_at");
 				expired = grip_json_get_type(expiredVal) != GripJSONNull ? grip_json_get_number(expiredVal) : 0;
 				grip_destroy_json_value(expiredVal);
-				copy(prefix, charsmax(prefix), Group[GroupPrefix]);
+
+				if (prefix[0] == EOS) {
+					copy(prefix, charsmax(prefix), Group[GroupPrefix]);
+				}
 			}
 			grip_destroy_json_value(privilege);
 		}

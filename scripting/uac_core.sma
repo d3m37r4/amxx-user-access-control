@@ -1,4 +1,4 @@
-// TODO: Add natives for itterate
+#pragma semicolon 1
 
 #define CHANGE_NICK_HOOK 2 // 0 - amxmodx, 1 - fakemeta, 2 - reapi
 
@@ -129,6 +129,8 @@ new PluginId;
 new Trie:Privileges, Privilege[PrivilegeStruct];
 new UsersPrivilege[MAX_PLAYERS + 1][PrivilegeStruct];
 
+new Snapshot:PrivilegesSnapshot = Invalid_Snapshot, PrivilegesIterate = 0;
+
 public plugin_init() {
 	PluginId = register_plugin("[UAC] Core", "1.0.0", "GM-X Team");
 
@@ -185,6 +187,10 @@ public plugin_end() {
 	for (new i = 0; i < FWD_LAST; i++) {
 		DestroyForward(Forwards[i]);
 	}
+	
+	if (PrivilegesSnapshot != Invalid_Snapshot) {
+		TrieSnapshotDestroy(PrivilegesSnapshot);
+	}
 }
 
 public CvarChangeAccess(const pcvar, const oldValue[], const newValue[]) {
@@ -233,7 +239,7 @@ public client_disconnected(id) {
 	clear_user_state(id);
 	add_user_state(id, STATE_DISCONNECTED);
 	remove_user_flags(id, -1);
-	set_user_flags(id, DefaultAccess[DefaultAccessFlags][DefaultAccessFlags]);
+	set_user_flags(id, DefaultAccess[DefaultAccessPlayer][DefaultAccessFlags]);
 }
 
 public TaskLoadTimeout() {
@@ -299,24 +305,29 @@ loadFinish(const bool:timeout) {
 	if (!timeout) {
 		remove_task(TIMEOUT_TASK_ID);
 	}
+	
+	if (PrivilegesSnapshot != Invalid_Snapshot) {
+		TrieSnapshotDestroy(PrivilegesSnapshot);
+	}
+	PrivilegesSnapshot = TrieSnapshotCreate(Privileges);
 
 	ExecuteForward(Forwards[FWD_Loaded], FReturn, 0);
 }
 
-makeUserAccess(const id, const CheckResult:result) {
+makeUserAccess(const id, CheckResult:result) {
 	switch (result) {
 		case CHECK_DEFAULT: {
 			remove_user_flags(id);
-			new fl[32];
-			get_flags(DefaultAccess[DefaultAccessFlags][DefaultAccessFlags], fl, 31);
-			set_user_flags(id, DefaultAccess[DefaultAccessFlags][DefaultAccessFlags]);
-			printConsole(id, "* Privileges set");
+			if (is_user_bot(id)) {
+				set_user_flags(id, DefaultAccess[DefaultAccessBOT][DefaultAccessFlags]);
+			} else {
+				set_user_flags(id, DefaultAccess[DefaultAccessPlayer][DefaultAccessFlags]);
+			}
+			
 		}
 
 		case CHECK_SUCCESS: {
 			remove_user_flags(id);
-			new fl[32];
-			get_flags(Privilege[PrivilegeAccess], fl, 31);
 			set_user_flags(id, Privilege[PrivilegeAccess]);
 			UsersPrivilege[id] = Privilege;
 			printConsole(id, "* Privileges set");
@@ -345,8 +356,7 @@ CheckResult:checkUserFlags(const id, const name[] = "") {
 	}
 	
 	if (is_user_bot(id)) {
-		set_user_flags(id, DefaultAccess[DefaultAccessBOT][DefaultAccessFlags]);
-		return CHECK_IGNORE;
+		return CHECK_DEFAULT;
 	}
 	
 	#define MAX_AUTH_LENGTH 32
@@ -479,8 +489,14 @@ public plugin_natives() {
 	register_native("UAC_GetPassword", "NativeGetPassword", 0);
 	register_native("UAC_GetPrefix", "NativeGetPrefix", 0);
 	register_native("UAC_GetExpired", "NativeGetExpired", 0);
+	register_native("UAC_SetAccess", "NativeSetAccess", 0);
 	register_native("UAC_GetOptions", "NativeGetOptions", 0);
 	register_native("UAC_CheckPlayer", "NativeCheckPlayer", 0);
+	register_native("UAC_IterReset", "NativeIterReset", 0);
+	register_native("UAC_IterEnded", "NativeIterEnded", 0);
+	register_native("UAC_IterNext", "NativeIterNext", 0);
+	register_native("UAC_GetPlayerPrivilege", "NativeGetPlayerPrivilege", 0);
+	register_native("UAC_GetPlayerExpired", "NativeGetPlayerExpired", 0);
 }
 
 public NativeStartLoad(plugin) {
@@ -542,13 +558,14 @@ public NativePush(plugin, argc) {
 	makeKey(auth, Privilege[PrivilegeFlags], key, charsmax(key));
 	TrieSetArray(Privileges, key, Privilege, sizeof Privilege);
 	PluginLoadedNum++;
+	
+	if (Status == STATUS_LOADED) {
+		if (PrivilegesSnapshot != Invalid_Snapshot) {
+			TrieSnapshotDestroy(PrivilegesSnapshot);
+		}
+		PrivilegesSnapshot = TrieSnapshotCreate(Privileges);
+	}
 
-	// server_print(
-	// 	"^t Source %d. ID %d, Key '%s'. Password '%s'. Access %d. Flags %d. Prefix '%s'. Expired %d. Option %d",
-	// 	Privilege[PrivilegeSource], Privilege[PrivilegeId], key,
-	// 	Privilege[PrivilegePassword], Privilege[PrivilegeAccess], Privilege[PrivilegeFlags],
-	// 	Privilege[PrivilegePrefix], Privilege[PrivilegeExpired], Privilege[PrivilegeOptions]
-	// )
 	return 1;
 }
 
@@ -588,6 +605,13 @@ public NativeGetOptions(plugin, argc) {
 	return Privilege[PrivilegeOptions];
 }
 
+public NativeSetAccess(plugin, argc) {
+	CHECK_NATIVE_ARGS_NUM(argc, 1, 0)
+	enum { arg_access = 1 };
+	Privilege[PrivilegeAccess] = get_param(arg_access);
+	return 1;
+}
+
 public CheckResult:NativeCheckPlayer(plugin, argc) {
 	CHECK_NATIVE_ARGS_NUM(argc, 1, CHECK_IGNORE)
 	enum { arg_player = 1 };
@@ -598,6 +622,42 @@ public CheckResult:NativeCheckPlayer(plugin, argc) {
 	new CheckResult:result = checkUserFlags(player);
 	makeUserAccess(player, result);
 	return result;
+}
+
+public NativeIterReset(plugin, argc) {
+	PrivilegesIterate = 0;
+	return 1;
+}
+
+public bool:NativeIterEnded(plugin, argc) {
+	return bool:(PrivilegesIterate >= TrieSnapshotLength(PrivilegesSnapshot) - 1);
+}
+
+public NativeIterNext(plugin, argc) {
+	PrivilegesIterate++;
+	new key[MAX_KEY_LENGTH];
+	TrieSnapshotGetKey(PrivilegesSnapshot, PrivilegesIterate, key, charsmax(key));
+	TrieGetArray(Privileges, key, Privilege, sizeof Privilege);
+	return 1;
+}
+
+public NativeGetPlayerPrivilege(plugin, argc) {
+	CHECK_NATIVE_ARGS_NUM(argc, 1, 0)
+	enum { arg_player = 1 };
+	new player = get_param(arg_player);
+	CHECK_NATIVE_PLAYER(player, 0)
+	
+	Privilege = UsersPrivilege[player];
+	return 1;
+}
+
+public NativeGetPlayerExpired(plugin, argc) {
+	CHECK_NATIVE_ARGS_NUM(argc, 1, -1)
+	enum { arg_player = 1 };
+	new player = get_param(arg_player);
+	CHECK_NATIVE_PLAYER(player, -1)
+	
+	return UsersPrivilege[player][PrivilegeExpired];
 }
 
 checkAPIVersion() {

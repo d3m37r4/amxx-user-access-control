@@ -30,11 +30,13 @@ native UAC_GetPassword(dest[], const length);
 native UAC_GetPrefix(dest[], const length);
 native UAC_GetExpired();
 native UAC_GetOptions();
+native UAC_SetAccess(const access);
 native UAC_CheckPlayer(id);
-
-// native UAC_ItterReset();
-// native UAC_ItterNext();
-// native UAC_ItterLast();
+native UAC_IterReset();
+native UAC_IterEnded();
+native UAC_IterNext();
+native UAC_GetPlayerPrivilege(const player);
+native UAC_GetPlayerExpired(const player);
 
 /*
 * This is callback from GMX Core that gives major/minor versions for verifying compatibility for GMX versions.
