@@ -12,8 +12,8 @@
 
 stock const UAC_API_VERSION_STR[] = "0.1.0";
 
-forward UAC_Loading(const reload);
-forward UAC_Loaded(const reload);
+forward UAC_Loading();
+forward UAC_Loaded();
 forward UAC_Checking(const id);
 forward UAC_Checked(const id, const UAC_CheckResult:result);
 forward UAC_Pushing();

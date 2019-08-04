@@ -162,14 +162,14 @@ public plugin_init() {
 
 	Privileges = TrieCreate();
 
-	Forwards[FWD_Loading] = CreateMultiForward("UAC_Loading", ET_IGNORE, FP_CELL);
-	Forwards[FWD_Loaded] = CreateMultiForward("UAC_Loaded", ET_IGNORE, FP_CELL);
+	Forwards[FWD_Loading] = CreateMultiForward("UAC_Loading", ET_IGNORE);
+	Forwards[FWD_Loaded] = CreateMultiForward("UAC_Loaded", ET_IGNORE);
 	Forwards[FWD_Checking] = CreateMultiForward("UAC_Checking", ET_STOP, FP_CELL);
 	Forwards[FWD_Checked] = CreateMultiForward("UAC_Checked", ET_IGNORE, FP_CELL, FP_CELL);
 	Forwards[FWD_Pushing] = CreateMultiForward("UAC_Pushing", ET_IGNORE);
 	Forwards[FWD_Pushed] = CreateMultiForward("UAC_Pushed", ET_IGNORE);
 
-	loadStart(false);
+	loadStart();
 }
 
 public plugin_cfg() {
@@ -208,7 +208,9 @@ public CmdReload(id, level) {
 		return PLUGIN_HANDLED;
 	}
 
-	loadStart(true);
+	TrieClear(Privileges);
+	NeedRecheck = true;
+	loadStart();
 	return PLUGIN_HANDLED;
 }
 
@@ -243,7 +245,7 @@ public client_disconnected(id) {
 }
 
 public TaskLoadTimeout() {
-	loadFinish(true);
+	loadFinish();
 }
 
 #if defined _reapi_included
@@ -275,11 +277,7 @@ public client_infochanged(id) {
 }
 #endif
 
-loadStart(const bool:reload) {
-	if (reload) {
-		TrieClear(Privileges);
-		NeedRecheck = true;
-	}
+loadStart() {
 	Status = STATUS_LOADING;
 	PluginLoadedNum = 0;
 
@@ -287,11 +285,11 @@ loadStart(const bool:reload) {
 		arrayset(LoadStatusList[i], 0, sizeof LoadStatusList[]);
 	}
 	LoadStatusNum = 0;
-	ExecuteForward(Forwards[FWD_Loading], FReturn, reload ? 1 : 0);
+	ExecuteForward(Forwards[FWD_Loading], FReturn);
 	set_task(5.0, "TaskLoadTimeout", TIMEOUT_TASK_ID);
 }
 
-loadFinish(const bool:timeout) {
+loadFinish() {
 	Status = STATUS_LOADED;
 
 	if (NeedRecheck) {
@@ -302,16 +300,12 @@ loadFinish(const bool:timeout) {
 		}
 	}
 
-	if (!timeout) {
-		remove_task(TIMEOUT_TASK_ID);
-	}
-	
 	if (PrivilegesSnapshot != Invalid_Snapshot) {
 		TrieSnapshotDestroy(PrivilegesSnapshot);
 	}
 	PrivilegesSnapshot = TrieSnapshotCreate(Privileges);
 
-	ExecuteForward(Forwards[FWD_Loaded], FReturn, 0);
+	ExecuteForward(Forwards[FWD_Loaded], FReturn);
 }
 
 makeUserAccess(const id, CheckResult:result) {
@@ -534,7 +528,8 @@ public NativeFinishLoad(plugin) {
 		return 1;
 	}
 
-	loadFinish(false);
+	remove_task(TIMEOUT_TASK_ID);
+	loadFinish();
 	return 1;
 }
 
