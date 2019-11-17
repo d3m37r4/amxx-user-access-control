@@ -132,7 +132,7 @@ new UsersPrivilege[MAX_PLAYERS + 1][PrivilegeStruct];
 new Snapshot:PrivilegesSnapshot = Invalid_Snapshot, PrivilegesIterate = 0;
 
 public plugin_init() {
-	PluginId = register_plugin("[UAC] Core", "1.0.0", "GM-X Team");
+	PluginId = register_plugin("[UAC] Core", UAC_VERSION_STR, "GM-X Team");
 
 	register_concmd("amx_reloadadmins", "CmdReload", ADMIN_CFG);
 

@@ -30,7 +30,7 @@ enum _:GroupInfo {
 new Array:Groups = Invalid_Array, GroupsNum, Group[GroupInfo];
 
 public plugin_init() {
-	register_plugin("[UAC] GM-X Loader", "1.0.0", "GM-X Team");
+	register_plugin("[UAC] GM-X Loader", UAC_VERSION_STR, "GM-X Team");
 }
 
 public GMX_CfgLoaded() {

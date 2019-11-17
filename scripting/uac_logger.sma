@@ -4,7 +4,7 @@
 new LogFile;
 
 public plugin_init() {
-	register_plugin("[UAC] Logger", "1.0.0", "GM-X Team");
+	register_plugin("[UAC] Logger", UAC_VERSION_STR, "GM-X Team");
 }
 
 public plugin_cfg() {

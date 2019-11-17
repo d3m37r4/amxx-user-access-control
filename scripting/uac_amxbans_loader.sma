@@ -9,7 +9,7 @@ new Address[MAX_IP_WITH_PORT_LENGTH] = "";
 new Handle:Tuple = Empty_Handle;
 
 public plugin_init() {
-	register_plugin("[UAC] AmxBans Loader", "1.0.0", "F@nt0M");
+	register_plugin("[UAC] AmxBans Loader", UAC_VERSION_STR, "F@nt0M");
 }
 
 public plugin_end() {

@@ -5,12 +5,7 @@
 #define _uac_included
 
 #include <uac_consts>
-
-#define UAC_MAJOR_VERSION			0
-#define UAC_MINOR_VERSION			1
-#define UAC_MAINTENANCE_VERSION		1
-
-stock const UAC_API_VERSION_STR[] = "0.1.0";
+#include <uac_version>
 
 forward UAC_Loading();
 forward UAC_Loaded();

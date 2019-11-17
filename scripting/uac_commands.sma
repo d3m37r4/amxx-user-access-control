@@ -3,7 +3,7 @@
 #include <uac>
 
 public plugin_init() {
-	register_plugin("[UAC] Commands", "1.0.0", "GM-X Team");
+	register_plugin("[UAC] Commands", UAC_VERSION_STR, "GM-X Team");
 
 	register_dictionary("admincmd.txt")
 	register_dictionary("common.txt")

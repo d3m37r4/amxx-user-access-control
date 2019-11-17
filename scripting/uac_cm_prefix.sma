@@ -20,7 +20,7 @@ enum {
 new Prefix[MAX_PLAYERS+1];
 
 public plugin_init() {
-	register_plugin("[UAC] CM Prefix", "1.0.0", "GM-X Team");
+	register_plugin("[UAC] CM Prefix", UAC_VERSION_STR, "GM-X Team");
 }
 
 public UAC_Checked(const id, const UAC_CheckResult:found) {
