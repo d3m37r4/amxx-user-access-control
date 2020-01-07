@@ -2,8 +2,9 @@
 #include <grip>
 #include <uac>
 #include <gmx>
+#include <gmx_cache>
 
-new BackupPath[128], bool:Loaded = false;
+new bool:Loaded = false;
 new bool:GMXLoaded = false, bool:UACLoading = false;
 
 enum {
@@ -50,18 +51,10 @@ public UAC_Loading() {
 	UAC_StartLoad();
 	UACLoading = true;
 
-	new bool:needRequest = true;
-	if (!Loaded) {
-		get_localinfo("amxx_datadir", BackupPath, charsmax(BackupPath));
-		add(BackupPath, charsmax(BackupPath), "/gmx_privileges.json");
-		if (file_exists(BackupPath)) {
-			new error[128];
-			new GripJSONValue:data = grip_json_parse_file(BackupPath, error, charsmax(error));
-			if (data != Invalid_GripJSONValue) {
-				needRequest = !parseData(data);
-				grip_destroy_json_value(data);
-			}
-		}
+	new bool:needRequest = true, GripJSONValue:data;
+	if (!Loaded && GMX_CacheLoad("privileges", data)) {
+		needRequest = !parseData(data);
+		grip_destroy_json_value(data);
 		Loaded = true;
 	}
 
@@ -74,14 +67,14 @@ public UAC_Loading() {
 	}
 }
 
-public OnResponse(const GmxResponseStatus:status, const GripJSONValue:data, const userid) {
+public OnResponse(const GmxResponseStatus:status, const GripJSONValue:data) {
 	if (status != GmxResponseStatusOk) {
 		UAC_FinishLoad();
 		return;
 	}
 
 	parseData(data);
-	grip_json_serial_to_file(data, BackupPath, false);
+	GMX_CacheSave("privileges", data)
 	UAC_FinishLoad();
 }
 
